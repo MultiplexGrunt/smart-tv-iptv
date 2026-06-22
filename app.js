@@ -369,11 +369,20 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
             return;
         }
 
-        // Para evitar sobrecargar el proxy de Vercel con fragmentos binarios pesados de video,
-        // usamos corsproxy.io que está optimizado para retransmisión de alta velocidad
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(originalUrl)}`;
-        context.url = proxyUrl;
+        let proxyUrl = "";
+        if (window.location.hostname.includes('vercel.app')) {
+            // En Vercel usamos nuestra función serverless que es segura y no da 403
+            proxyUrl = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
+        } else {
+            // En local, usamos allorigins para dominios específicos como mdstrm.com o dai.google.com para evitar el 403 de corsproxy
+            if (originalUrl.includes('mdstrm.com') || originalUrl.includes('dai.google.com')) {
+                proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`;
+            } else {
+                proxyUrl = `https://corsproxy.io/?${encodeURIComponent(originalUrl)}`;
+            }
+        }
         
+        context.url = proxyUrl;
         super.load(context, config, callbacks);
     }
 }
