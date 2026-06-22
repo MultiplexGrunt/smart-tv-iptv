@@ -1,0 +1,553 @@
+/* ── VARIABLES DEL SISTEMA (DISEÑO PREMIUM) ── */
+:root {
+    --bg-dark: #000c0f;
+    --bg-gradient: linear-gradient(135deg, #000c0f 0%, #001a1e 100%);
+    --bg-sidebar: rgba(0, 16, 20, 0.85);
+    --bg-card: rgba(255, 255, 255, 0.03);
+    --bg-card-focused: rgba(255, 255, 255, 0.08);
+    
+    --border-light: rgba(255, 255, 255, 0.08);
+    --border-focused: #ff8c00;
+    
+    --primary: #ff8c00;
+    --primary-gradient: linear-gradient(90deg, #ff8c00 0%, #ff4500 100%);
+    --primary-glow: rgba(255, 140, 0, 0.45);
+    
+    --teal-neon: #00f0ff;
+    --teal-glow: rgba(0, 240, 255, 0.35);
+    
+    --text-main: #ffffff;
+    --text-muted: #94a3b8;
+    --text-dimmed: #64748b;
+    
+    --font-sans: 'Inter', sans-serif;
+    --font-heading: 'Outfit', sans-serif;
+}
+
+/* ── CONFIGURACIÓN GLOBAL ── */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    outline: none;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    overflow: hidden; /* Evita barras de desplazamiento en TV */
+    user-select: none; /* Evita selecciones accidentales en TV */
+}
+
+/* ── APARIENCIA APP SHELL (Smart TV layout) ── */
+.tv-app-container {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+}
+
+/* ── BARRA LATERAL (Sidebar) ── */
+.tv-sidebar {
+    width: 320px;
+    height: 100%;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border-light);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    padding: 30px 20px;
+    z-index: 10;
+}
+
+.tv-brand {
+    position: relative;
+    padding-bottom: 25px;
+    margin-bottom: 30px;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    flex-direction: column;
+}
+
+.brand-glow {
+    position: absolute;
+    top: -20px;
+    left: -20px;
+    width: 100px;
+    height: 100px;
+    background: var(--primary);
+    filter: blur(60px);
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.brand-title {
+    font-family: var(--font-heading);
+    font-size: 28px;
+    font-weight: 800;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.5px;
+}
+
+.brand-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-top: 4px;
+}
+
+.tv-menu {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    scrollbar-width: none; /* Oculta scrollbar */
+}
+
+.tv-menu::-webkit-scrollbar {
+    display: none;
+}
+
+.menu-label {
+    font-size: 11px;
+    color: var(--text-dimmed);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    padding-left: 10px;
+}
+
+.menu-item {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    padding: 14px 18px;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menu-item .icon {
+    font-size: 18px;
+}
+
+.menu-item.active {
+    background: rgba(255, 140, 0, 0.1);
+    color: var(--primary);
+    border-color: rgba(255, 140, 0, 0.2);
+}
+
+/* ── ESTADOS DE ENFOQUE (Focus states premium) ── */
+.focusable {
+    outline: none;
+    position: relative;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.focusable:focus, .focusable.focused {
+    transform: scale(1.04);
+    background: var(--primary-gradient) !important;
+    color: #ffffff !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 22px var(--primary-glow) !important;
+    z-index: 5;
+}
+
+/* Si está enfocado, las partes internas cambian de color */
+.focusable:focus .icon, .focusable.focused .icon {
+    filter: brightness(2);
+}
+
+.tv-sidebar-footer {
+    padding-top: 20px;
+    border-top: 1px solid var(--border-light);
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #00ff66;
+    box-shadow: 0 0 10px #00ff66;
+}
+
+/* ── ÁREA CONTENIDO PRINCIPAL ── */
+.tv-main-content {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 30px;
+    overflow: hidden;
+}
+
+/* ── CABECERA ── */
+.tv-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    height: 60px;
+}
+
+.header-left h1 {
+    font-family: var(--font-heading);
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.channel-count-badge {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-light);
+    color: var(--text-muted);
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 700;
+    margin-left: 15px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.tv-clock {
+    font-family: var(--font-heading);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 8px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--border-light);
+    letter-spacing: 1px;
+}
+
+/* ── LAYOUT DIVIDIDO (Canales + Player) ── */
+.tv-split-layout {
+    flex: 1;
+    display: flex;
+    gap: 30px;
+    min-height: 0; /* Permite scroll interno */
+    margin-bottom: 20px;
+}
+
+/* SECCIÓN CANALES */
+.tv-channels-section {
+    flex: 5;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100%;
+}
+
+.search-bar-container {
+    margin-bottom: 18px;
+}
+
+.search-input {
+    width: 100%;
+    height: 52px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    color: var(--text-main);
+    font-size: 16px;
+    font-weight: 500;
+    padding: 0 20px;
+    transition: all 0.2s ease;
+}
+
+.search-input::placeholder {
+    color: var(--text-dimmed);
+}
+
+.search-input:focus, .search-input.focused {
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 0 20px var(--teal-glow) !important;
+    border-color: var(--teal-neon) !important;
+    transform: scale(1.02);
+}
+
+.channels-grid-container {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+    scrollbar-width: none;
+}
+
+.channels-grid-container::-webkit-scrollbar {
+    display: none;
+}
+
+.channels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    padding-bottom: 20px;
+}
+
+/* TARJETA DE CANAL */
+.channel-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    aspect-ratio: 1.15;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.channel-logo-container {
+    width: 68px;
+    height: 68px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.channel-logo {
+    max-width: 80%;
+    max-height: 80%;
+    object-fit: contain;
+}
+
+.channel-logo-fallback {
+    font-size: 26px;
+}
+
+.channel-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-main);
+    text-align: center;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.channel-card.active-play {
+    border-color: var(--teal-neon);
+    background: rgba(0, 240, 255, 0.05);
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+}
+
+/* SECCIÓN REPRODUCTOR DE VIDEO */
+.tv-player-section {
+    flex: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    height: 100%;
+}
+
+.player-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000000;
+    border-radius: 20px;
+    border: 1px solid var(--border-light);
+    overflow: hidden;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+}
+
+#tv-video-player {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+.player-info-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(0deg, rgba(0, 10, 12, 0.95) 0%, rgba(0, 10, 12, 0.6) 70%, transparent 100%);
+    padding: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    transition: opacity 0.3s ease;
+}
+
+.player-info-overlay h2 {
+    font-family: var(--font-heading);
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-info-overlay p {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.player-loader {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 10, 12, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    z-index: 2;
+}
+
+.player-controls-guide {
+    display: flex;
+    gap: 12px;
+}
+
+.control-btn {
+    flex: 1;
+    height: 48px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+/* REPRODUCTOR PANTALLA COMPLETA */
+.tv-app-container.fullscreen-mode .tv-sidebar {
+    display: none;
+}
+
+.tv-app-container.fullscreen-mode .tv-main-content {
+    padding: 0;
+}
+
+.tv-app-container.fullscreen-mode .tv-header,
+.tv-app-container.fullscreen-mode .tv-channels-section,
+.tv-app-container.fullscreen-mode .player-controls-guide,
+.tv-app-container.fullscreen-mode .tv-footer-guide {
+    display: none !important;
+}
+
+.tv-app-container.fullscreen-mode .tv-player-section {
+    flex: 1;
+    width: 100vw;
+    height: 100vh;
+}
+
+.tv-app-container.fullscreen-mode .player-wrapper {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    border: none;
+}
+
+/* ── MENSAJES DE ESTADO (Cargando / Error) ── */
+.loading-state, .error-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    gap: 16px;
+    text-align: center;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.08);
+    border-top: 3px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error-state p {
+    color: #ff4d4d;
+    font-weight: 600;
+}
+
+/* ── PIE DE PÁGINA (Guía de Controles) ── */
+.tv-footer-guide {
+    height: 40px;
+    border-top: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding-top: 16px;
+}
+
+.guide-item {
+    font-size: 13px;
+    color: var(--text-dimmed);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.guide-item .key {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: var(--text-main);
+    font-family: monospace;
+    font-size: 12px;
+}

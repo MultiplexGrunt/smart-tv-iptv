@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Reproductor IPTV optimizado para Smart TV. Navegación fluida mediante control remoto y D-pad.">
+    <title>TecnoTV — Smart Player</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- HLS.js para soportar streams de video .m3u8 en navegadores que no lo soportan de forma nativa -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+
+    <div class="tv-app-container">
+        
+        <!-- ── SIDEBAR (IZQUIERDA) ── -->
+        <aside class="tv-sidebar">
+            <div class="tv-brand">
+                <span class="brand-glow"></span>
+                <span class="brand-title">TecnoTV</span>
+                <span class="brand-subtitle">Smart Player</span>
+            </div>
+
+            <nav class="tv-menu" id="menu-sections">
+                <div class="menu-label">Listas M3U</div>
+                <!-- Los apartados se cargarán aquí y serán enfocables -->
+                <button class="menu-item focusable" data-section="lista.m3u" id="sec-principal" tabindex="0">
+                    <span class="icon">📺</span> PRINCIPAL SSIPTV
+                </button>
+                <button class="menu-item focusable" data-section="deportes.m3u" id="sec-deportes" tabindex="0">
+                    <span class="icon">🏟️</span> DEPORTES
+                </button>
+                <button class="menu-item focusable" data-section="lista1.m3u" id="sec-lista1" tabindex="0">
+                    <span class="icon">⚡</span> LISTA 1
+                </button>
+                <button class="menu-item focusable" data-section="lista2.m3u" id="sec-lista2" tabindex="0">
+                    <span class="icon">🔥</span> LISTA 2
+                </button>
+                <button class="menu-item focusable" data-section="lista3.m3u" id="sec-lista3" tabindex="0">
+                    <span class="icon">✨</span> LISTA 3
+                </button>
+                <button class="menu-item focusable" data-section="lista4.m3u" id="sec-lista4" tabindex="0">
+                    <span class="icon">🌟</span> LISTA 4
+                </button>
+                <button class="menu-item focusable" data-section="peliculas.m3u" id="sec-peliculas" tabindex="0">
+                    <span class="icon">🎬</span> PELICULAS
+                </button>
+            </nav>
+
+            <div class="tv-sidebar-footer">
+                <div class="status-indicator">
+                    <span class="status-dot"></span>
+                    <span id="status-text">Online</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ── MAIN CONTENT AREA (DERECHA) ── -->
+        <main class="tv-main-content">
+            
+            <!-- HEADER -->
+            <header class="tv-header">
+                <div class="header-left">
+                    <h1 id="active-category-title">PRINCIPAL SSIPTV</h1>
+                    <span class="channel-count-badge" id="channel-count">0 canales</span>
+                </div>
+                <div class="header-right">
+                    <div class="tv-clock" id="system-clock">00:00</div>
+                </div>
+            </header>
+
+            <!-- CONTENIDO DIVIDIDO: CANALES (IZQ) Y REPRODUCTOR (DER) -->
+            <div class="tv-split-layout">
+                
+                <!-- CUADRÍCULA DE CANALES -->
+                <section class="tv-channels-section">
+                    <!-- Buscador integrado para navegación D-pad -->
+                    <div class="search-bar-container">
+                        <input type="text" id="channel-search" class="focusable search-input" placeholder="Buscar canal..." tabindex="0">
+                    </div>
+
+                    <div class="channels-grid-container">
+                        <div class="channels-grid" id="channels-grid">
+                            <!-- Los canales se cargarán aquí dinámicamente -->
+                            <div class="loading-state">
+                                <div class="spinner"></div>
+                                <p>Cargando lista de canales...</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VISTA PREVIA DEL REPRODUCTOR -->
+                <section class="tv-player-section">
+                    <div class="player-wrapper">
+                        <!-- Video player HTML5 -->
+                        <video id="tv-video-player" controls autoplay></video>
+                        
+                        <!-- Overlay de información del canal reproduciendo -->
+                        <div class="player-info-overlay" id="player-info">
+                            <h2 id="playing-channel-title">Ningún canal seleccionado</h2>
+                            <p id="playing-channel-group">Elige un canal de la lista para comenzar a reproducir</p>
+                        </div>
+                        
+                        <!-- Indicador de carga -->
+                        <div class="player-loader" id="player-loader" style="display: none;">
+                            <div class="spinner"></div>
+                            <p>Cargando streaming...</p>
+                        </div>
+                    </div>
+
+                    <div class="player-controls-guide">
+                        <button class="control-btn focusable" id="btn-fullscreen" tabindex="0">
+                            📺 Pantalla Completa
+                        </button>
+                        <button class="control-btn focusable" id="btn-reload-stream" tabindex="0">
+                            🔄 Recargar Canal
+                        </button>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- ── FOOTER / GUÍA DE CONTROLES ── -->
+            <footer class="tv-footer-guide">
+                <div class="guide-item"><span class="key">▲ ▼ ◀ ▶</span> Navegar</div>
+                <div class="guide-item"><span class="key">ENTER</span> Seleccionar / Reproducir</div>
+                <div class="guide-item"><span class="key">BACKSPACE</span> Volver al Menú</div>
+                <div class="guide-item"><span class="key">TV REMOTE MODE</span> Optimizado</div>
+            </footer>
+
+        </main>
+
+    </div>
+
+    <!-- Script de lógica de la aplicación -->
+    <script src="app.js"></script>
+</body>
+</html>
