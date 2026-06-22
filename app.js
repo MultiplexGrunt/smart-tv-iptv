@@ -30,9 +30,8 @@ const dom = {
     playingGroup: document.getElementById("playing-channel-group"),
     playerLoader: document.getElementById("player-loader"),
     clock: document.getElementById("system-clock"),
-    btnFullscreen: document.getElementById("btn-fullscreen"),
-    btnReload: document.getElementById("btn-reload-stream"),
     btnToggleEngine: document.getElementById("btn-toggle-engine"),
+    modeLabel: document.getElementById("mode-label"),
     appContainer: document.querySelector(".tv-app-container")
 };
 
@@ -127,24 +126,16 @@ function setupEventListeners() {
         filterChannels(e.target.value);
     });
 
-    // Botones del reproductor
-    dom.btnFullscreen.addEventListener("click", () => {
-        toggleFullscreen();
-    });
-
-    dom.btnReload.addEventListener("click", () => {
-        if (appState.currentPlayingUrl) {
-            playStream(appState.currentPlayingUrl, dom.playingTitle.textContent, dom.playingGroup.textContent);
-        }
-    });
-
+    // Botón de modo HLS/Nativo
     dom.btnToggleEngine.addEventListener("click", () => {
         if (appState.playMode === "proxy") {
             appState.playMode = "native";
-            dom.btnToggleEngine.textContent = "⚙️ Modo: Nativo (Directo)";
+            dom.modeLabel.textContent = "NAT";
+            dom.btnToggleEngine.title = "Modo: Nativo (Directo) — click para cambiar";
         } else {
             appState.playMode = "proxy";
-            dom.btnToggleEngine.textContent = "⚙️ Modo: HLS (Proxy)";
+            dom.modeLabel.textContent = "HLS";
+            dom.btnToggleEngine.title = "Modo: HLS (Proxy) — click para cambiar";
         }
         // Recargar canal si hay alguno reproduciendo
         if (appState.currentPlayingUrl) {
@@ -502,30 +493,17 @@ function playStream(url, title, group = "IPTV Stream") {
     }
 }
 
-// ── CONTROL DE PANTALLA COMPLETA ──
+// ── CONTROL DE PANTALLA COMPLETA (via teclado) ──
 function toggleFullscreen() {
     const isFullscreen = dom.appContainer.classList.toggle("fullscreen-mode");
-    if (isFullscreen) {
-        dom.btnFullscreen.textContent = "🔲 Salir de Pantalla Completa";
-        try {
-            if (dom.appContainer.requestFullscreen) {
-                dom.appContainer.requestFullscreen();
-            }
-        } catch (e) {
-            console.warn("Nativo fullscreen bloqueado o no soportado:", e);
+    try {
+        if (isFullscreen) {
+            if (dom.appContainer.requestFullscreen) dom.appContainer.requestFullscreen();
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
         }
-    } else {
-        dom.btnFullscreen.textContent = "📺 Pantalla Completa";
-        try {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
-        } catch (e) {}
-        
-        // Devolver foco al botón de pantalla completa
-        setTimeout(() => {
-            setFocus(dom.btnFullscreen);
-        }, 100);
+    } catch (e) {
+        console.warn("Fullscreen nativo no soportado:", e);
     }
     rebuildSpatialIndexes();
 }

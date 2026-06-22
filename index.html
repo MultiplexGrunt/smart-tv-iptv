@@ -45,7 +45,13 @@
                     <span class="brand-title">TecnoTV</span>
                     <span class="brand-subtitle">Smart Player</span>
                 </div>
-                <div class="tv-clock" id="system-clock">00:00</div>
+                <div class="sidebar-header-controls">
+                    <button class="mode-toggle-btn focusable" id="btn-toggle-engine" tabindex="0" title="Cambiar modo de reproducción">
+                        <span id="mode-icon">⚙️</span>
+                        <span id="mode-label">HLS</span>
+                    </button>
+                    <div class="tv-clock" id="system-clock">00:00</div>
+                </div>
             </div>
 
             <!-- Buscador integrado para navegación D-pad -->
@@ -133,25 +139,12 @@
                 </div>
             </nav>
 
-            <!-- CONTROLES COMPACTOS EN PIE DE SIDEMENU -->
+            <!-- GUÍA DE CONTROLES AL PIE -->
             <div class="sidebar-footer">
-                <div class="player-controls-guide">
-                    <button class="control-btn focusable" id="btn-fullscreen" tabindex="0">
-                        📺 Pantalla Completa
-                    </button>
-                    <button class="control-btn focusable" id="btn-reload-stream" tabindex="0">
-                        🔄 Recargar
-                    </button>
-                    <button class="control-btn focusable" id="btn-toggle-engine" tabindex="0">
-                        ⚙️ Modo: HLS (Proxy)
-                    </button>
-                </div>
-
-                <!-- GUÍA DE CONTROLES AL PIE -->
                 <footer class="tv-footer-guide">
                     <div class="guide-item"><span class="key">▲ ▼ ◀ ▶</span> Navegar</div>
                     <div class="guide-item"><span class="key">ENTER</span> Seleccionar</div>
-                    <div class="guide-item"><span class="key">BACK</span> Cerrar Menú</div>
+                    <div class="guide-item"><span class="key">BACK</span> Menú</div>
                 </footer>
             </div>
         </aside>

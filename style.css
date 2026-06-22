@@ -135,6 +135,41 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    flex-shrink: 0;
+}
+
+.sidebar-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ── BOTÓN DE MODO (ICÓNO PEQUEÑO JUNTO AL RELOJ) ── */
+.mode-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.mode-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.mode-toggle-btn #mode-icon {
+    font-size: 13px;
 }
 
 .tv-brand {
@@ -219,14 +254,25 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     overflow-y: auto;
-    scrollbar-width: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,140,0,0.3) transparent;
     padding-right: 2px;
+    min-height: 0; /* Crucial para que flex child pueda shrink */
 }
 
 .tv-accordion::-webkit-scrollbar {
-    display: none;
+    width: 4px;
+}
+
+.tv-accordion::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tv-accordion::-webkit-scrollbar-thumb {
+    background: rgba(255,140,0,0.3);
+    border-radius: 4px;
 }
 
 .accordion-group {
@@ -283,14 +329,20 @@ body {
 
 .accordion-content {
     display: none;
-    padding: 0 12px 14px 12px;
-    max-height: 380px;
+    padding: 0 8px 10px 8px;
+    max-height: 320px;
     overflow-y: auto;
-    scrollbar-width: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
 }
 
 .accordion-content::-webkit-scrollbar {
-    display: none;
+    width: 3px;
+}
+
+.accordion-content::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.12);
+    border-radius: 3px;
 }
 
 /* ── LISTA DE CANALES DENTRO DEL ACORDEÓN ── */
@@ -303,13 +355,20 @@ body {
 .channel-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
+    gap: 10px;
+    padding: 8px 10px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.03);
     border: 1px solid transparent;
     cursor: pointer;
-    transition: all 0.18s ease;
+    transition: all 0.15s ease;
+    min-height: 44px;
+    width: 100%;
+}
+
+.channel-item:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.1);
 }
 
 .channel-item-logo-container {
@@ -377,34 +436,9 @@ body {
 
 /* ── CONTROLES PIE DE PÁGINA (Sidebar Footer) ── */
 .sidebar-footer {
-    padding-top: 15px;
+    padding-top: 12px;
     border-top: 1px solid var(--border-light);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.player-controls-guide {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.control-btn {
-    width: 100%;
-    height: 42px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--border-light);
-    border-radius: 10px;
-    color: var(--text-muted);
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 /* ── GUÍA AL PIE ── */
