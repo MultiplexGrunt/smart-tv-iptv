@@ -76,12 +76,12 @@ body {
 
 .player-info-overlay {
     position: absolute;
-    bottom: 0;
+    top: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(0deg, rgba(0, 5, 8, 0.95) 0%, rgba(0, 5, 8, 0.6) 70%, transparent 100%);
-    padding: 30px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    background: linear-gradient(180deg, rgba(0, 5, 8, 0.85) 0%, rgba(0, 5, 8, 0.45) 70%, transparent 100%);
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     transition: opacity 0.3s ease;
     z-index: 5;
     pointer-events: none; /* No obstruye eventos */
@@ -89,17 +89,17 @@ body {
 
 .player-info-overlay h2 {
     font-family: var(--font-heading);
-    font-size: 24px;
+    font-size: 16px;
     font-weight: 700;
     color: #fff;
-    margin-bottom: 6px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    margin-bottom: 3px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
 
 .player-info-overlay p {
-    font-size: 15px;
+    font-size: 12px;
     color: var(--text-muted);
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
 
 .player-loader {
