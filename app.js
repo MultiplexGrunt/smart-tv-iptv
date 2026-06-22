@@ -355,6 +355,29 @@ function filterChannels(query) {
     renderChannels();
 }
 
+// Clase cargadora personalizada de HLS para redirigir peticiones a través del proxy CORS
+class ProxyLoader extends Hls.DefaultConfig.loader {
+    constructor(config) {
+        super(config);
+    }
+    load(context, config, callbacks) {
+        const originalUrl = context.url;
+        
+        // No aplicar proxy a peticiones locales o si ya es una petición de proxy
+        if (!originalUrl.startsWith('http') || originalUrl.includes('corsproxy.io') || originalUrl.includes('/api/proxy')) {
+            super.load(context, config, callbacks);
+            return;
+        }
+
+        // Para evitar sobrecargar el proxy de Vercel con fragmentos binarios pesados de video,
+        // usamos corsproxy.io que está optimizado para retransmisión de alta velocidad
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(originalUrl)}`;
+        context.url = proxyUrl;
+        
+        super.load(context, config, callbacks);
+    }
+}
+
 // ── REPRODUCTOR DE VIDEO (HLS / NATIVO) ──
 function playStream(url, title, group = "IPTV Stream") {
     console.log(`Iniciando reproducción de canal: ${title} -> ${url}`);
@@ -375,11 +398,13 @@ function playStream(url, title, group = "IPTV Stream") {
     const isHls = url.includes(".m3u8") || url.includes("playlist");
 
     if (isHls && Hls.isSupported()) {
-        // Usar HLS.js
+        // Usar HLS.js con el cargador de proxy personalizado
         appState.hlsPlayer = new Hls({
             maxBufferSize: 10 * 1024 * 1024,
             maxBufferLength: 10,
-            liveSyncDurationCount: 3
+            liveSyncDurationCount: 3,
+            pLoader: ProxyLoader,
+            fLoader: ProxyLoader
         });
         
         appState.hlsPlayer.loadSource(url);
