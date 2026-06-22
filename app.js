@@ -17,6 +17,7 @@ let appState = {
     channels: [],               // Canales de la sección actual
     filteredChannels: [],       // Canales filtrados por búsqueda
     currentPlayingUrl: "",
+    playMode: "proxy",          // "proxy" o "native"
     hlsPlayer: null
 };
 
@@ -34,6 +35,7 @@ const dom = {
     clock: document.getElementById("system-clock"),
     btnFullscreen: document.getElementById("btn-fullscreen"),
     btnReload: document.getElementById("btn-reload-stream"),
+    btnToggleEngine: document.getElementById("btn-toggle-engine"),
     appContainer: document.querySelector(".tv-app-container")
 };
 
@@ -138,7 +140,21 @@ function setupEventListeners() {
 
     dom.btnReload.addEventListener("click", () => {
         if (appState.currentPlayingUrl) {
-            playStream(appState.currentPlayingUrl, dom.playingTitle.textContent);
+            playStream(appState.currentPlayingUrl, dom.playingTitle.textContent, dom.playingGroup.textContent);
+        }
+    });
+
+    dom.btnToggleEngine.addEventListener("click", () => {
+        if (appState.playMode === "proxy") {
+            appState.playMode = "native";
+            dom.btnToggleEngine.textContent = "⚙️ Modo: Nativo (Directo)";
+        } else {
+            appState.playMode = "proxy";
+            dom.btnToggleEngine.textContent = "⚙️ Modo: HLS (Proxy)";
+        }
+        // Recargar canal si hay alguno reproduciendo
+        if (appState.currentPlayingUrl) {
+            playStream(appState.currentPlayingUrl, dom.playingTitle.textContent, dom.playingGroup.textContent);
         }
     });
 
@@ -403,10 +419,10 @@ function playStream(url, title, group = "IPTV Stream") {
         appState.hlsPlayer = null;
     }
 
-    // Comprobar si es un archivo HLS (.m3u8)
+        // Comprobar si es un archivo HLS (.m3u8)
     const isHls = url.includes(".m3u8") || url.includes("playlist");
 
-    if (isHls && Hls.isSupported()) {
+    if (isHls && appState.playMode === "proxy" && Hls.isSupported()) {
         // Usar HLS.js con el cargador de proxy personalizado
         appState.hlsPlayer = new Hls({
             maxBufferSize: 10 * 1024 * 1024,
