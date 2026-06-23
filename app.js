@@ -230,6 +230,12 @@ function renderLiveEvents(events, container) {
         const firstBtn = container.querySelector(".event-stream-btn");
         if (firstBtn) {
             setFocus(firstBtn);
+            
+            // Auto-reproducción automática del primer canal al ingresar a la app
+            if (!appState.currentPlayingUrl) {
+                console.log("Auto-reproduciendo primer canal del primer evento al ingresar...");
+                firstBtn.click();
+            }
         }
     }
 }
