@@ -726,12 +726,48 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
 }
 
 // ── REPRODUCTOR DE VIDEO ABSTRACTO POR RANURA (SLOT) ──
-function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = false) {
+async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = false) {
     console.log(`[Slot ${slotId}] Reproduciendo: ${title} -> ${url} (forceIframe=${forceIframe}, isMuted=${isMuted})`);
     
+    // Interceptar señal de TV Azteca para reproducirla de forma nativa extrayendo el m3u8
+    const isAztecaUrl = url.includes("tvazteca.com/aztecadeportes/azteca-deportes-network-en-vivo");
+    let targetUrl = url;
+    let actualForceIframe = forceIframe;
+
+    if (isAztecaUrl) {
+        console.log(`[Slot ${slotId}] Interceptada señal de TV Azteca. Extrayendo stream directo...`);
+        actualForceIframe = false; // Forzar reproductor nativo de video en lugar de iframe
+        dom.playerLoader.style.display = "flex";
+        
+        try {
+            const proxyUrl = buildProxyUrl(url);
+            const res = await fetchWithTimeout(proxyUrl, {}, 6000);
+            if (res.ok) {
+                const html = await res.text();
+                const regex = /data-hlsurl="([^"]+\.m3u8)"/i;
+                const match = html.match(regex);
+                if (match) {
+                    targetUrl = match[1];
+                    console.log(`[Slot ${slotId}] Stream de TV Azteca extraído con éxito: ${targetUrl}`);
+                } else {
+                    console.warn(`[Slot ${slotId}] No se encontró data-hlsurl. Usando fallback.`);
+                    targetUrl = "https://content.uplynk.com/6994be4d5caab0723aaab37c.m3u8";
+                }
+            } else {
+                throw new Error(`HTTP ${res.status}`);
+            }
+        } catch (err) {
+            console.warn(`[Slot ${slotId}] Error al extraer señal de TV Azteca:`, err);
+            // Fallback de URL directa conocida
+            targetUrl = "https://content.uplynk.com/6994be4d5caab0723aaab37c.m3u8";
+        } finally {
+            dom.playerLoader.style.display = "none";
+        }
+    }
+
     // Convertir http a https para tecnotv.club para evitar Mixed Content bloqueado por el navegador
-    if (url.startsWith("http://tecnotv.club")) {
-        url = url.replace("http://tecnotv.club", "https://tecnotv.club");
+    if (targetUrl.startsWith("http://tecnotv.club")) {
+        targetUrl = targetUrl.replace("http://tecnotv.club", "https://tecnotv.club");
     }
 
     const slotEl = document.getElementById(`player-slot-${slotId}`);
@@ -765,19 +801,19 @@ function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = fals
     // Configurar sonido
     videoEl.muted = isMuted;
 
-    const isWebPage = forceIframe;
+    const isWebPage = actualForceIframe;
 
     if (isWebPage) {
         videoEl.style.display = "none";
         iframeEl.style.display = "block";
         
         // En iframe el control de mute no es 100% estándar, pero lo cargamos directo
-        iframeEl.src = url;
+        iframeEl.src = targetUrl;
     } else {
         iframeEl.style.display = "none";
         videoEl.style.display = "block";
 
-        const isHls = url.includes(".m3u8") || url.includes("playlist");
+        const isHls = targetUrl.includes(".m3u8") || targetUrl.includes("playlist");
 
         if (isHls && Hls.isSupported()) {
             appState[hlsKey] = new Hls({
@@ -788,7 +824,7 @@ function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = fals
                 fLoader: ProxyLoader
             });
             
-            appState[hlsKey].loadSource(url);
+            appState[hlsKey].loadSource(targetUrl);
             appState[hlsKey].attachMedia(videoEl);
             
             appState[hlsKey].on(Hls.Events.MANIFEST_PARSED, () => {
@@ -812,7 +848,7 @@ function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = fals
                 }
             });
         } else {
-            videoEl.src = url;
+            videoEl.src = targetUrl;
             videoEl.load();
             videoEl.play().catch(err => {
                 console.warn(`Autoplay nativo bloqueado en Slot ${slotId}:`, err);
