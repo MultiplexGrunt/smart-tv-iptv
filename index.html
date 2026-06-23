@@ -1,35 +1,41 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Reproductor de Eventos Deportivos en Vivo optimizado para Smart TV. Navegación fluida mediante control remoto y D-pad.">
-    <title>TecnoTV — Live Sports Player</title>
+    <meta name="description"
+        content="Reproductor de Eventos Deportivos en Vivo optimizado para Smart TV. Navegación fluida mediante control remoto y D-pad.">
+    <title>GrunTV</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <!-- HLS.js para soportar streams de video .m3u8 en navegadores que no lo soportan de forma nativa -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
+
 <body>
 
     <div class="tv-app-container">
-        
+
         <!-- ── PANEL DE EVENTOS SUPERIOR (30% DE LA PANTALLA) ── -->
         <header class="tv-events-section" id="tv-events-section">
             <div class="header-top-bar">
                 <div class="tv-brand">
                     <span class="brand-glow"></span>
-                    <span class="brand-title">TecnoTV</span>
+                    <span class="brand-title">GrunTV</span>
                     <span class="brand-subtitle">Live Sports</span>
                 </div>
                 <div class="header-status">
-                    <button class="btn-fullscreen focusable" id="btn-fullscreen-toggle" tabindex="0">PANTALLA COMPLETA</button>
+                    <button class="btn-fullscreen focusable" id="btn-fullscreen-toggle" tabindex="0">PANTALLA
+                        COMPLETA</button>
                     <div class="tv-clock" id="system-clock">00:00</div>
                 </div>
             </div>
-            
+
             <!-- Contenedor con scroll horizontal de columnas de eventos -->
             <div class="events-columns-wrapper" id="eventos-list">
                 <div class="loading-state">
@@ -42,39 +48,47 @@
         <!-- ── REPRODUCTOR DE VIDEO INFERIOR (70% DE LA PANTALLA) ── -->
         <section class="tv-player-section" id="tv-player-section">
             <div class="player-wrapper" id="player-wrapper">
-                
+
                 <!-- RANURA 1: Principal / Izquierda -->
                 <div class="player-slot active-slot" id="player-slot-1">
                     <video id="tv-video-player-1" controls autoplay></video>
-                    <iframe id="tv-iframe-player-1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
-                    <button class="slot-close-btn focusable" id="btn-close-slot-1" tabindex="0" title="Detener reproducción">×</button>
+                    <iframe id="tv-iframe-player-1" allow="autoplay; encrypted-media; picture-in-picture"
+                        allowfullscreen></iframe>
+                    <button class="slot-close-btn focusable" id="btn-close-slot-1" tabindex="0"
+                        title="Detener reproducción">×</button>
                 </div>
 
                 <!-- RANURA 2: Secundaria / Derecha (Pantalla Partida) -->
                 <div class="player-slot" id="player-slot-2" style="display: none;">
                     <video id="tv-video-player-2" controls autoplay></video>
-                    <iframe id="tv-iframe-player-2" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                    <iframe id="tv-iframe-player-2" allow="autoplay; encrypted-media; picture-in-picture"
+                        allowfullscreen></iframe>
                     <div class="slot-badge">PANTALLA 2</div>
-                    <button class="slot-close-btn focusable" id="btn-close-slot-2" tabindex="0" title="Cerrar pantalla partida">×</button>
+                    <button class="slot-close-btn focusable" id="btn-close-slot-2" tabindex="0"
+                        title="Cerrar pantalla partida">×</button>
                 </div>
 
                 <!-- RANURA PiP: Flotante (Esquinas) -->
-                <div class="player-slot pip-slot pip-top-right focusable" id="player-slot-pip" tabindex="0" style="display: none;">
+                <div class="player-slot pip-slot pip-top-right focusable" id="player-slot-pip" tabindex="0"
+                    style="display: none;">
                     <video id="tv-video-player-pip" autoplay></video>
-                    <iframe id="tv-iframe-player-pip" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                    <iframe id="tv-iframe-player-pip" allow="autoplay; encrypted-media; picture-in-picture"
+                        allowfullscreen></iframe>
                     <div class="pip-overlay-controls">
                         <span>Mini PiP (ENTER rota esquina)</span>
                     </div>
-                    <button class="slot-position-btn focusable" id="btn-position-slot-pip" tabindex="0" title="Cambiar posición">⤭</button>
-                    <button class="slot-close-btn focusable" id="btn-close-slot-pip" tabindex="0" title="Cerrar PiP">×</button>
+                    <button class="slot-position-btn focusable" id="btn-position-slot-pip" tabindex="0"
+                        title="Cambiar posición">⤭</button>
+                    <button class="slot-close-btn focusable" id="btn-close-slot-pip" tabindex="0"
+                        title="Cerrar PiP">×</button>
                 </div>
-                
+
                 <!-- Overlay de información del canal reproduciendo -->
                 <div class="player-info-overlay" id="player-info">
                     <h2 id="playing-channel-title">Ningún evento seleccionado</h2>
                     <p id="playing-channel-group">Elige una transmisión de la parte superior para comenzar</p>
                 </div>
-                
+
                 <!-- Indicador de carga -->
                 <div class="player-loader" id="player-loader" style="display: none;">
                     <div class="spinner"></div>
@@ -90,4 +104,5 @@
     <!-- Script de lógica de la aplicación -->
     <script src="app.js"></script>
 </body>
+
 </html>
