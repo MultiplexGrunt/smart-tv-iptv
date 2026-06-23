@@ -161,7 +161,7 @@ body {
     display: flex;
     flex-direction: row;
     gap: 18px;
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: hidden;
     flex: 1;
     padding-bottom: 8px;
@@ -184,7 +184,7 @@ body {
     display: flex;
     flex-direction: column;
     flex: 1; /* Permite organizar automáticamente abarcando el total del contenedor */
-    min-width: 380px; /* Columnas más grandes y anchas */
+    min-width: 0; /* Sin ancho mínimo rígido para evitar el scroll horizontal */
     background: var(--bg-card);
     border: 1px solid var(--border-light);
     border-radius: 12px;
