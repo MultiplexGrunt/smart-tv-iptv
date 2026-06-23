@@ -470,6 +470,37 @@ function renderLiveEvents(events, container) {
                 sortedLinks.push(aztecaLink);
             }
         }
+        // Calcular hora local del usuario adaptándola de UTC o de UTC-5 (huso horario del wc.json)
+        let displayTime = ev.time;
+        if (match && match.kickoff_at) {
+            try {
+                const localDate = new Date(match.kickoff_at);
+                const hrs = localDate.getHours().toString().padStart(2, '0');
+                const mins = localDate.getMinutes().toString().padStart(2, '0');
+                displayTime = `${hrs}:${mins}`;
+            } catch (err) {
+                console.warn("Error convirtiendo kickoff_at a hora local:", err);
+            }
+        } else if (ev.time) {
+            try {
+                const timeParts = ev.time.split(":");
+                if (timeParts.length === 2) {
+                    const today = new Date();
+                    const year = today.getFullYear();
+                    const month = (today.getMonth() + 1).toString().padStart(2, '0');
+                    const day = today.getDate().toString().padStart(2, '0');
+                    // wc.json asume por defecto la zona horaria UTC-5
+                    const isoStr = `${year}-${month}-${day}T${timeParts[0]}:${timeParts[1]}:00-05:00`;
+                    const eventDate = new Date(isoStr);
+                    const hrs = eventDate.getHours().toString().padStart(2, '0');
+                    const mins = eventDate.getMinutes().toString().padStart(2, '0');
+                    displayTime = `${hrs}:${mins}`;
+                }
+            } catch (err) {
+                console.warn("Error convirtiendo ev.time (UTC-5) a hora local:", err);
+            }
+        }
+
         let headerTitleText = ev.title;
         let badgeHtml = "";
 
@@ -541,7 +572,7 @@ function renderLiveEvents(events, container) {
                         <span class="event-title-text" style="font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;" title="${headerTitleText}">${headerTitleText}</span>
                         ${badgeHtml}
                     </div>
-                    <span style="font-size: 10px; color: var(--text-muted); font-weight: 500; margin-left: 8px; flex-shrink: 0;">⏰ ${ev.time}</span>
+                    <span style="font-size: 10px; color: var(--text-muted); font-weight: 500; margin-left: 8px; flex-shrink: 0;">⏰ ${displayTime}</span>
                 </div>
                 <div class="event-links-list">
                     ${linksHtml}
