@@ -415,9 +415,10 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
     load(context, config, callbacks) {
         const originalUrl = context.url;
         
-        // No aplicar proxy a peticiones locales, si es tecnotv.club (evita fallos de token/IP) o si ya es una petición de proxy
+        // No aplicar proxy a peticiones locales, tecnotv.club (tokens/IP) o dai.google.com (CORS abierto/bloqueo de datacenter)
         if (!originalUrl.startsWith('http') || 
             originalUrl.includes('tecnotv.club') || 
+            originalUrl.includes('dai.google.com') ||
             originalUrl.includes('corsproxy.io') || 
             originalUrl.includes('/api/proxy')) {
             super.load(context, config, callbacks);
@@ -443,8 +444,13 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
 }
 
 // ── REPRODUCTOR DE VIDEO (HLS / NATIVO) ──
-function playStream(url, title, group = "IPTV Stream") {
-    console.log(`Iniciando reproducción: ${title} -> ${url}`);
+function playStream(url, title, group = "IPTV Stream", forceIframe = false) {
+    // Convertir http a https para tecnotv.club para prevenir bloqueos de Mixed Content del navegador
+    if (url.startsWith("http://tecnotv.club")) {
+        url = url.replace("http://tecnotv.club", "https://tecnotv.club");
+    }
+
+    console.log(`Iniciando reproducción: ${title} -> ${url} (forceIframe=${forceIframe})`);
     
     appState.currentPlayingUrl = url;
     dom.playingTitle.textContent = title;
@@ -469,11 +475,8 @@ function playStream(url, title, group = "IPTV Stream") {
         dom.iframePlayer.src = "about:blank";
     }
 
-    // 2. Determinar si es una página web externa (iframe) o un stream directo (m3u8, mp4, etc.)
-    const isWebPage = url.includes(".html") || 
-                      url.includes(".php") || 
-                      url.includes("global.php") ||
-                      (!url.includes(".m3u8") && !url.includes(".mp4") && !url.includes(".mpd") && !url.includes("playlist"));
+    // 2. Determinar si es una página web externa (iframe) o un stream directo
+    const isWebPage = forceIframe;
 
     if (isWebPage) {
         // Ocultar video, mostrar iframe
@@ -870,7 +873,7 @@ function resolveAndPlayLiveStream(btn, pageUrl, name, group) {
     console.log(`▶ Cargando evento en el reproductor (iframe): ${name}`);
 
     // Reproducir vía iframe
-    playStream(pageUrl, name, group);
+    playStream(pageUrl, name, group, true);
 }
 
 /**
