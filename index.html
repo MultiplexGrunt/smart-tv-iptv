@@ -61,6 +61,25 @@
 
             <!-- ACORDEÓN DE LISTAS M3U -->
             <nav class="tv-accordion" id="tv-accordion">
+
+                <!-- 0. EVENTOS DEPORTIVOS EN VIVO (streamtpday1.xyz) -->
+                <div class="accordion-group" id="group-eventos">
+                    <button class="accordion-header focusable" data-section="eventos" id="sec-eventos" tabindex="0">
+                        <span class="icon">🔴</span>
+                        <span style="flex:1">EVENTOS EN VIVO</span>
+                        <span class="live-badge" id="eventos-badge" style="display:none">LIVE</span>
+                        <span class="chevron">▶</span>
+                    </button>
+                    <div class="accordion-content" id="eventos-content">
+                        <div class="channels-list" id="eventos-list">
+                            <div class="loading-state">
+                                <div class="spinner"></div>
+                                <p style="font-size:12px;margin-top:5px">Cargando eventos...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 1. PRINCIPAL -->
                 <div class="accordion-group" id="group-principal">
                     <button class="accordion-header focusable" data-section="lista.m3u" id="sec-principal" tabindex="0">

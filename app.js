@@ -7,7 +7,10 @@ const CONFIG = {
     DEFAULT_FOLDER: "11qu",
     ADMIN_CODE_URL: "https://tecnotv.club/admincode.php",
     BASE_URL: "https://tecnotv.club",
-    CORS_PROXY: "https://api.allorigins.win/raw?url="
+    CORS_PROXY: "https://api.allorigins.win/raw?url=",
+    EVENTS_JSON_URL: "https://streamtpday1.xyz/wc.json",
+    EVENTS_REFRESH_MS: 60 * 1000,        // Actualizar lista de eventos cada 60s
+    TOKEN_RENEW_BUFFER_S: 300            // Renovar token 5 minutos antes de expirar
 };
 
 let appState = {
@@ -18,7 +21,15 @@ let appState = {
     filteredChannels: [],       // Canales filtrados por búsqueda
     currentPlayingUrl: "",
     playMode: "proxy",          // "proxy" o "native"
-    hlsPlayer: null
+    hlsPlayer: null,
+    // Estado de eventos en vivo
+    liveStream: {
+        pageUrl: null,          // URL de global2.php del stream activo
+        streamUrl: null,        // URL m3u8 actual
+        expiresAt: null,        // Timestamp Unix de expiración del token
+        renewTimer: null,       // Timer de auto-renovación
+        activeBtn: null         // Botón activo en el DOM
+    }
 };
 
 // Elementos DOM
@@ -41,18 +52,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     await resolveAdminFolder();
     setupEventListeners();
     
+    // Cargar eventos en vivo
+    loadLiveEvents();
+    setInterval(loadLiveEvents, CONFIG.EVENTS_REFRESH_MS);
+
     // Enfocar el buscador o la primera lista al iniciar
     const searchInput = dom.channelSearch;
     if (searchInput) {
         setFocus(searchInput);
     }
     
-    // Expandir por defecto el primer elemento del acordeón
-    const firstHeader = document.getElementById("sec-principal");
-    if (firstHeader) {
+    // Expandir por defecto la sección de eventos en vivo
+    const eventsHeader = document.getElementById("sec-eventos");
+    if (eventsHeader) {
         setTimeout(() => {
-            toggleAccordion(firstHeader);
-        }, 300);
+            const group = document.getElementById("group-eventos");
+            const content = document.getElementById("eventos-content");
+            if (group && content) {
+                group.classList.add("active");
+                content.style.display = "block";
+            }
+        }, 200);
     }
 });
 
@@ -113,11 +133,21 @@ async function resolveAdminFolder() {
 
 // ── CONFIGURACIÓN DE EVENTOS ──
 function setupEventListeners() {
-    // Manejar acordeón
+    // Manejar acordeón — excluir "eventos" que tiene su propia lógica
     const headers = dom.accordion.querySelectorAll(".accordion-header");
     headers.forEach(header => {
         header.addEventListener("click", () => {
-            toggleAccordion(header);
+            if (header.dataset.section === "eventos") {
+                // Toggle simple del acordeón de eventos
+                const group = header.parentElement;
+                const content = group.querySelector(".accordion-content");
+                const isOpen = group.classList.contains("active");
+                group.classList.toggle("active", !isOpen);
+                content.style.display = isOpen ? "none" : "block";
+                rebuildSpatialIndexes();
+            } else {
+                toggleAccordion(header);
+            }
         });
     });
 
@@ -693,4 +723,266 @@ function fetchWithTimeout(resource, options = {}, timeout = 8000) {
         ...options,
         signal: controller.signal
     }).finally(() => clearTimeout(id));
+}
+
+// ════════════════════════════════════════════════════════
+//  MÓDULO: EVENTOS DEPORTIVOS EN VIVO (streamtpday1.xyz)
+// ════════════════════════════════════════════════════════
+
+/**
+ * Carga el JSON de eventos y renderiza el acordeón de Eventos en Vivo.
+ * Se llama cada 60 segundos automáticamente.
+ */
+async function loadLiveEvents() {
+    const listEl = document.getElementById("eventos-list");
+    if (!listEl) return;
+
+    try {
+        const proxyUrl = buildProxyUrl(CONFIG.EVENTS_JSON_URL);
+        const res = await fetchWithTimeout(proxyUrl, {}, 8000);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        const events = data.events || [];
+
+        if (events.length === 0) {
+            listEl.innerHTML = `<p style="font-size:12px;color:var(--text-dimmed);text-align:center;padding:10px">Sin eventos disponibles</p>`;
+            return;
+        }
+
+        // Mostrar badge LIVE en el header
+        const badge = document.getElementById("eventos-badge");
+        if (badge) badge.style.display = "inline-block";
+
+        renderLiveEvents(events, listEl);
+
+    } catch (err) {
+        console.warn("Error cargando eventos en vivo:", err);
+        if (!listEl.querySelector(".event-item")) {
+            listEl.innerHTML = `<div class="error-state"><p>⚠️ Error al cargar eventos</p></div>`;
+        }
+    }
+}
+
+/**
+ * Renderiza la lista de eventos en el DOM.
+ * Solo actualiza si los datos cambiaron (evita parpadeos).
+ */
+function renderLiveEvents(events, container) {
+    const newHtml = events.map(ev => {
+        // Filtrar solo los links "Global" (sin DRM, reproducibles)
+        const globalLinks = ev.links.filter(lk =>
+            lk.url.includes("streamtpday1.xyz/global")
+        );
+        // Si no hay links Global, mostrar todos de igual forma
+        const links = globalLinks.length > 0 ? globalLinks : ev.links;
+
+        const statusIcon = ev.links.some(l => l.status === "live") ? "🔴" : "⏰";
+        const flagEmojis = (ev.flags || []).map(f => 
+            typeof f === "string" ? "" : ""
+        ).join("");
+
+        const linksHtml = links.map(lk => {
+            const qualityClass = lk.quality.type === "fhd" ? "fhd" : lk.quality.type === "sd" ? "sd" : "";
+            const isGlobal = lk.url.includes("streamtpday1.xyz/global");
+            const label = isGlobal ? `${lk.server}` : lk.server;
+            const langFlag = lk.lang.code === "es" ? "🇪🇸" : lk.lang.code === "us" ? "🇺🇸" : lk.lang.code === "br" ? "🇧🇷" : lk.lang.code === "de" ? "🇩🇪" : "🌐";
+
+            if (!isGlobal) return ""; // Solo mostramos los Global reproducibles
+
+            return `
+                <button class="event-stream-btn focusable"
+                    data-page-url="${encodeURIComponent(lk.url)}"
+                    data-stream-name="${ev.title} — ${label}"
+                    data-stream-group="${ev.category}"
+                    tabindex="0">
+                    ${langFlag}
+                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+                    <span class="stream-quality ${qualityClass}">${lk.quality.label}</span>
+                    <span class="stream-renew-icon">🔄</span>
+                </button>`;
+        }).join("");
+
+        if (!linksHtml.trim()) return ""; // Saltar si no hay links Global
+
+        return `
+            <div class="event-item">
+                <div class="event-item-title">
+                    ${statusIcon} ${ev.title}
+                    <span class="event-item-time">${ev.time}</span>
+                </div>
+                <div class="event-links-list">
+                    ${linksHtml}
+                </div>
+            </div>`;
+    }).join("");
+
+    if (!newHtml.trim()) {
+        container.innerHTML = `<p style="font-size:12px;color:var(--text-dimmed);text-align:center;padding:10px">No hay streams globales disponibles</p>`;
+        return;
+    }
+
+    // Evitar re-render si el contenido es idéntico
+    const currentHash = container.dataset.eventsHash;
+    const newHash = newHtml.length.toString();
+    if (currentHash === newHash) return;
+
+    container.dataset.eventsHash = newHash;
+    container.innerHTML = newHtml;
+
+    // Asignar eventos de clic a los botones de stream
+    container.querySelectorAll(".event-stream-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
+            const name    = btn.dataset.streamName;
+            const group   = btn.dataset.streamGroup;
+            resolveAndPlayLiveStream(btn, pageUrl, name, group);
+        });
+    });
+
+    rebuildSpatialIndexes();
+}
+
+/**
+ * Resuelve la URL m3u8 real llamando al API /extract-stream,
+ * reproduce el stream y programa la auto-renovación.
+ */
+async function resolveAndPlayLiveStream(btn, pageUrl, name, group) {
+    // Marcar como cargando
+    btn.classList.add("loading-stream");
+    btn.querySelector(".stream-renew-icon").textContent = "⏳";
+
+    // Quitar activo anterior
+    if (appState.liveStream.activeBtn) {
+        appState.liveStream.activeBtn.classList.remove("active-play");
+    }
+
+    // Cancelar timer de renovación anterior
+    cancelLiveRenewTimer();
+
+    try {
+        const result = await extractStreamUrl(pageUrl);
+
+        if (!result.ok) {
+            throw new Error(result.error || "No se pudo extraer el stream");
+        }
+
+        // Guardar estado del stream en vivo
+        appState.liveStream.pageUrl    = pageUrl;
+        appState.liveStream.streamUrl  = result.url;
+        appState.liveStream.expiresAt  = result.expiresAt;
+        appState.liveStream.activeBtn  = btn;
+
+        // Mostrar en el reproductor
+        btn.classList.remove("loading-stream");
+        btn.classList.add("active-play");
+        btn.querySelector(".stream-renew-icon").textContent = "✅";
+
+        console.log(`▶ Stream en vivo resuelto: ${result.url}`);
+        console.log(`⏰ Expira en: ${result.expiresIn}s (~${Math.round(result.expiresIn / 60)} min)`);
+
+        // Reproducir con HLS nativo ya que los streams "global" no necesitan proxy de segmentos
+        playStream(result.url, name, group);
+
+        // Programar renovación automática
+        scheduleLiveRenew(pageUrl, name, group, result.expiresIn);
+
+    } catch (err) {
+        console.error("Error resolviendo stream en vivo:", err);
+        btn.classList.remove("loading-stream");
+        btn.querySelector(".stream-renew-icon").textContent = "❌";
+
+        if (dom.playingGroup) {
+            dom.playingGroup.textContent = `⚠️ Error: ${err.message}`;
+            dom.playingGroup.style.color = "#ff4d4d";
+        }
+
+        // Reintentar en 10 segundos
+        setTimeout(() => {
+            btn.querySelector(".stream-renew-icon").textContent = "🔄";
+        }, 10000);
+    }
+}
+
+/**
+ * Llama al endpoint /api/extract-stream para obtener la URL m3u8.
+ */
+async function extractStreamUrl(pageUrl) {
+    const apiUrl = `/api/extract-stream?page=${encodeURIComponent(pageUrl)}`;
+    const res = await fetchWithTimeout(apiUrl, {}, 10000);
+    return await res.json();
+}
+
+/**
+ * Programa la auto-renovación del token antes de que expire.
+ * @param {number} expiresInSeconds - Tiempo restante en segundos
+ */
+function scheduleLiveRenew(pageUrl, name, group, expiresInSeconds) {
+    cancelLiveRenewTimer();
+
+    if (!expiresInSeconds || expiresInSeconds <= 0) {
+        // Si no sabemos el tiempo, renovar cada 4 horas
+        expiresInSeconds = 4 * 3600;
+    }
+
+    // Renovar CONFIG.TOKEN_RENEW_BUFFER_S segundos ANTES de que expire
+    const renewIn = Math.max(
+        (expiresInSeconds - CONFIG.TOKEN_RENEW_BUFFER_S) * 1000,
+        60 * 1000 // Mínimo 1 minuto
+    );
+
+    console.log(`🔄 Auto-renovación programada en ${Math.round(renewIn / 60000)} minutos`);
+
+    appState.liveStream.renewTimer = setTimeout(async () => {
+        console.log("🔄 Renovando token del stream en vivo automáticamente...");
+        try {
+            const result = await extractStreamUrl(pageUrl);
+            if (result.ok && result.url) {
+                appState.liveStream.streamUrl = result.url;
+                appState.liveStream.expiresAt = result.expiresAt;
+
+                // Reanudar reproducción con el nuevo URL
+                playStream(result.url, name, group);
+
+                // Actualizar ícono del botón activo
+                if (appState.liveStream.activeBtn) {
+                    appState.liveStream.activeBtn.querySelector(".stream-renew-icon").textContent = "✅";
+                }
+
+                console.log(`✅ Token renovado. Nuevo stream: ${result.url}`);
+
+                // Programar la siguiente renovación
+                scheduleLiveRenew(pageUrl, name, group, result.expiresIn);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (err) {
+            console.error("❌ Error en auto-renovación:", err);
+            // Reintentar renovación en 2 minutos
+            scheduleLiveRenew(pageUrl, name, group, 120 + CONFIG.TOKEN_RENEW_BUFFER_S);
+        }
+    }, renewIn);
+}
+
+/**
+ * Cancela el timer de renovación activo.
+ */
+function cancelLiveRenewTimer() {
+    if (appState.liveStream.renewTimer) {
+        clearTimeout(appState.liveStream.renewTimer);
+        appState.liveStream.renewTimer = null;
+    }
+}
+
+/**
+ * Construye la URL de proxy correcta según el entorno.
+ */
+function buildProxyUrl(targetUrl) {
+    if (window.location.hostname.includes("vercel.app") || window.location.hostname.includes("localhost")) {
+        // En Vercel y local usamos nuestro proxy serverless
+        // Pero para el JSON de eventos lo pedimos directamente primero
+        return targetUrl;
+    }
+    return `${CONFIG.CORS_PROXY}${encodeURIComponent(targetUrl)}`;
 }
