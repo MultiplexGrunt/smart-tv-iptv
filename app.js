@@ -361,6 +361,82 @@ function findMatchingMatch(eventTitle, allMatches) {
 }
 
 /**
+ * Determina si un partido es transmitido en vivo por TV Azteca (fase de grupos o fase final).
+ */
+function isTvAztecaMatch(eventTitle, match) {
+    // 1. Fase Final: cualquier partido que no sea de la fase de grupos es transmitido por TV Azteca
+    if (match && match.stage) {
+        const stageNorm = match.stage.toLowerCase();
+        if (!stageNorm.includes("group") && !stageNorm.includes("stage - 1") && !stageNorm.includes("stage - 2") && !stageNorm.includes("stage - 3")) {
+            return true;
+        }
+    }
+
+    // 2. Fase de Grupos: lista de partidos asignados a TV Azteca
+    const splitters = [" vs ", " - ", " v "];
+    let teamA = "";
+    let teamB = "";
+    for (const splitter of splitters) {
+        if (eventTitle.toLowerCase().includes(splitter)) {
+            const parts = eventTitle.split(new RegExp(splitter, "i"));
+            teamA = parts[0].trim();
+            teamB = parts[1].trim();
+            break;
+        }
+    }
+
+    if (!teamA || !teamB) return false;
+
+    const normA = translateAndNormalize(teamA);
+    const normB = translateAndNormalize(teamB);
+
+    const groupMatches = [
+        ["mexico", "sudafrica"],
+        ["usa", "paraguay"],
+        ["estados unidos", "paraguay"],
+        ["brazil", "morocco"],
+        ["brasil", "marruecos"],
+        ["netherlands", "japan"],
+        ["paises bajos", "japon"],
+        ["argentina", "algeria"],
+        ["argentina", "argelia"],
+        ["england", "croatia"],
+        ["inglaterra", "croacia"],
+        ["mexico", "south korea"],
+        ["mexico", "corea del sur"],
+        ["brazil", "haiti"],
+        ["brasil", "haiti"],
+        ["netherlands", "repechaje uefa"],
+        ["paises bajos", "repechaje uefa"],
+        ["spain", "saudi arabia"],
+        ["espana", "arabia saudita"],
+        ["norway", "senegal"],
+        ["noruega", "senegal"],
+        ["colombia", "repechaje"],
+        ["colombia", "congo dr"],
+        ["colombia", "rd congo"],
+        ["repechaje uefa", "mexico"],
+        ["ecuador", "germany"],
+        ["ecuador", "alemania"],
+        ["uruguay", "spain"],
+        ["uruguay", "espana"],
+        ["panama", "england"],
+        ["panama", "inglaterra"],
+        ["colombia", "portugal"]
+    ];
+
+    for (const pair of groupMatches) {
+        const p0 = translateAndNormalize(pair[0]);
+        const p1 = translateAndNormalize(pair[1]);
+
+        const matchDirect = (p0 === normA && p1 === normB) || (p0 === normB && p1 === normA);
+        if (matchDirect) return true;
+    }
+
+    return false;
+}
+
+/**
  * Renderiza la lista de eventos como columnas horizontales.
  */
 function renderLiveEvents(events, container) {
@@ -378,6 +454,22 @@ function renderLiveEvents(events, container) {
 
         // Intentar buscar marcador para este evento en el estado global
         const match = findMatchingMatch(ev.title, appState.scores);
+
+        // Si es transmitido por TV Azteca, inyectar como segunda opción (índice 1)
+        if (isTvAztecaMatch(ev.title, match)) {
+            const aztecaLink = {
+                url: "https://www.tvazteca.com/aztecadeportes/azteca-deportes-network-en-vivo",
+                server: "Azteca 7 (TV Azteca)",
+                quality: { label: "HD", type: "hd" },
+                lang: { code: "es" }
+            };
+            
+            if (sortedLinks.length >= 1) {
+                sortedLinks.splice(1, 0, aztecaLink);
+            } else {
+                sortedLinks.push(aztecaLink);
+            }
+        }
         let headerTitleText = ev.title;
         let badgeHtml = "";
 
