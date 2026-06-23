@@ -729,14 +729,15 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
 async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = false) {
     console.log(`[Slot ${slotId}] Reproduciendo: ${title} -> ${url} (forceIframe=${forceIframe}, isMuted=${isMuted})`);
     
-    // Interceptar señal de TV Azteca para reproducirla de forma nativa extrayendo el m3u8
+    // Interceptar señal de TV Azteca para cargarla en un iframe personalizado y limpio
     const isAztecaUrl = url.includes("tvazteca.com/aztecadeportes/azteca-deportes-network-en-vivo");
     let targetUrl = url;
     let actualForceIframe = forceIframe;
+    let modifiedAztecaHtml = "";
 
     if (isAztecaUrl) {
-        console.log(`[Slot ${slotId}] Interceptada señal de TV Azteca. Extrayendo stream directo...`);
-        actualForceIframe = false; // Forzar reproductor nativo de video en lugar de iframe
+        console.log(`[Slot ${slotId}] Interceptada señal de TV Azteca. Cargando HTML modificado para ocultar elementos molestos...`);
+        actualForceIframe = true; // Forzar el uso de iframe
         dom.playerLoader.style.display = "flex";
         
         try {
@@ -744,22 +745,82 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
             const res = await fetchWithTimeout(proxyUrl, {}, 6000);
             if (res.ok) {
                 const html = await res.text();
-                const regex = /data-hlsurl="([^"]+\.m3u8)"/i;
-                const match = html.match(regex);
-                if (match) {
-                    targetUrl = match[1];
-                    console.log(`[Slot ${slotId}] Stream de TV Azteca extraído con éxito: ${targetUrl}`);
+                
+                const baseTag = '<base href="https://www.tvazteca.com/">';
+                const customStyles = `
+<style id="azteca-player-cleaner">
+    /* Reset de fondo negro para todo */
+    html, body, div, header, footer, main, section, article, nav, aside {
+        background: #000 !important;
+    }
+    
+    /* Ocultar elementos que estorben y anuncios */
+    .header, .footer, .nav, .sidebar, .ads, .advertisement, .ad-label, .GoogleDfpAd, .underlay, [id*="banner"], [id*="adv"], [class*="adv"], [class*="banner"] {
+        display: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
+    }
+    
+    /* Ocultar hermanos de la jerarquia principal del reproductor */
+    body > *:not(main) { display: none !important; }
+    main > *:not(article) { display: none !important; }
+    article > *:not(header) { display: none !important; }
+    header > *:not(.videoPage__player) { display: none !important; }
+    
+    /* Forzar pantalla completa para el reproductor */
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        overflow: hidden !important;
+    }
+    
+    main.mainLayout, 
+    article, 
+    header, 
+    .videoPage__player, 
+    .MediaStreamVideoPlayer, 
+    .MediaStreamVideoPlayer__viewport, 
+    .MediaStreamVideoPlayer-player,
+    iframe {
+        display: block !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: 9999999 !important;
+        border: none !important;
+    }
+</style>
+`;
+                
+                let modified = html;
+                if (modified.includes("<head>")) {
+                    modified = modified.replace("<head>", `<head>\n${baseTag}\n${customStyles}`);
+                } else if (modified.includes("<HEAD>")) {
+                    modified = modified.replace("<HEAD>", `<HEAD>\n${baseTag}\n${customStyles}`);
                 } else {
-                    console.warn(`[Slot ${slotId}] No se encontró data-hlsurl. Usando fallback.`);
-                    targetUrl = "https://content.uplynk.com/6994be4d5caab0723aaab37c.m3u8";
+                    modified = baseTag + customStyles + modified;
                 }
+                
+                modifiedAztecaHtml = modified;
+                console.log(`[Slot ${slotId}] HTML de TV Azteca inyectado con estilos de limpieza.`);
             } else {
                 throw new Error(`HTTP ${res.status}`);
             }
         } catch (err) {
-            console.warn(`[Slot ${slotId}] Error al extraer señal de TV Azteca:`, err);
-            // Fallback de URL directa conocida
-            targetUrl = "https://content.uplynk.com/6994be4d5caab0723aaab37c.m3u8";
+            console.warn(`[Slot ${slotId}] Error al descargar HTML de TV Azteca:`, err);
+            // Fallback: cargar directo la URL en el iframe
+            targetUrl = url;
         } finally {
             dom.playerLoader.style.display = "none";
         }
@@ -797,6 +858,7 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
     } catch(e) {}
     
     iframeEl.src = "about:blank";
+    iframeEl.removeAttribute("srcdoc");
     
     // Configurar sonido
     videoEl.muted = isMuted;
@@ -808,7 +870,13 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
         iframeEl.style.display = "block";
         
         // En iframe el control de mute no es 100% estándar, pero lo cargamos directo
-        iframeEl.src = targetUrl;
+        if (isAztecaUrl && modifiedAztecaHtml) {
+            iframeEl.removeAttribute("src");
+            iframeEl.srcdoc = modifiedAztecaHtml;
+        } else {
+            iframeEl.removeAttribute("srcdoc");
+            iframeEl.src = targetUrl;
+        }
     } else {
         iframeEl.style.display = "none";
         videoEl.style.display = "block";
@@ -907,6 +975,7 @@ function stopMainPlayer() {
     }
     if (iframeEl1) {
         iframeEl1.src = "about:blank";
+        iframeEl1.removeAttribute("srcdoc");
     }
 
     if (appState.hlsPlayer1) {
@@ -963,6 +1032,7 @@ function disableSplitScreen() {
     }
     if (iframeEl2) {
         iframeEl2.src = "about:blank";
+        iframeEl2.removeAttribute("srcdoc");
     }
 
     if (appState.hlsPlayer2) {
@@ -1029,6 +1099,7 @@ function disablePipScreen() {
     }
     if (iframeElPip) {
         iframeElPip.src = "about:blank";
+        iframeElPip.removeAttribute("srcdoc");
     }
 
     if (appState.hlsPlayerPip) {
