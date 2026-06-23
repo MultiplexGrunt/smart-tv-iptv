@@ -245,10 +245,19 @@ body {
     width: 0px;
 }
 
-/* Botones de stream */
-.event-stream-btn {
+.stream-row-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
     width: 100%;
     height: 38px;
+}
+
+/* Botones de stream */
+.event-stream-btn {
+    flex: 1; /* Ocupa el espacio restante */
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -261,6 +270,38 @@ body {
     padding: 0 10px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+}
+
+/* Botones pequeños a la derecha */
+.btn-action-split, .btn-action-pip {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    color: var(--text-main);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-action-split:focus, .btn-action-split.focused,
+.btn-action-pip:focus, .btn-action-pip.focused {
+    background: var(--primary-gradient);
+    border-color: var(--primary);
+    box-shadow: 0 0 8px var(--primary-glow);
+    transform: scale(1.05);
+}
+
+.btn-action-split.active-play, .btn-action-pip.active-play {
+    border-color: var(--teal-neon);
+    background: rgba(0, 240, 255, 0.08);
+    color: var(--teal-neon);
 }
 
 /* Hover / Focus espacial (D-Pad) */
@@ -325,22 +366,123 @@ body {
     background: #000;
 }
 
-#tv-video-player, #tv-iframe-player {
+/* Estilos para múltiples reproductores (Slots) */
+.player-slot {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     background: #000;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.player-slot video, .player-slot iframe {
+    width: 100%;
+    height: 100%;
+    background: #000;
+    border: none;
     position: absolute;
     top: 0;
     left: 0;
 }
 
-#tv-video-player {
+.player-slot video {
     object-fit: contain;
 }
 
-#tv-iframe-player {
-    border: none;
+.player-slot iframe {
     display: none;
+}
+
+/* Modo pantalla partida */
+.player-wrapper.split-mode #player-slot-1 {
+    width: 50% !important;
+    left: 0 !important;
+    border-right: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.player-wrapper.split-mode #player-slot-2 {
+    width: 50% !important;
+    left: 50% !important;
+    display: block !important;
+}
+
+.slot-badge {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: rgba(0, 0, 0, 0.6);
+    color: var(--teal-neon);
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--teal-neon);
+    pointer-events: none;
+    z-index: 4;
+}
+
+/* Slot PiP Flotante */
+.pip-slot {
+    width: 280px !important;
+    height: 160px !important;
+    position: absolute !important;
+    z-index: 50 !important;
+    border-radius: 12px;
+    border: 2px solid var(--border-light);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    overflow: hidden;
+    background: #000;
+}
+
+/* Enfocado por D-pad */
+.pip-slot:focus, .pip-slot.focused {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 15px var(--primary-glow) !important;
+}
+
+/* Clases de las 4 esquinas */
+.pip-bottom-right {
+    bottom: 20px;
+    right: 20px;
+    top: auto !important;
+    left: auto !important;
+}
+
+.pip-bottom-left {
+    bottom: 20px;
+    left: 20px;
+    top: auto !important;
+    right: auto !important;
+}
+
+.pip-top-right {
+    top: 20px;
+    right: 20px;
+    bottom: auto !important;
+    left: auto !important;
+}
+
+.pip-top-left {
+    top: 20px;
+    left: 20px;
+    bottom: auto !important;
+    right: auto !important;
+}
+
+.pip-overlay-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 9px;
+    text-align: center;
+    padding: 4px;
+    pointer-events: none;
+    z-index: 5;
 }
 
 .player-info-overlay {

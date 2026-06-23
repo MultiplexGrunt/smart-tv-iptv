@@ -40,12 +40,30 @@
         </header>
 
         <!-- ── REPRODUCTOR DE VIDEO INFERIOR (70% DE LA PANTALLA) ── -->
-        <section class="tv-player-section">
-            <div class="player-wrapper">
-                <!-- Video player HTML5 -->
-                <video id="tv-video-player" controls autoplay></video>
-                <!-- Iframe player para streams externos / eventos -->
-                <iframe id="tv-iframe-player" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+        <section class="tv-player-section" id="tv-player-section">
+            <div class="player-wrapper" id="player-wrapper">
+                
+                <!-- RANURA 1: Principal / Izquierda -->
+                <div class="player-slot active-slot" id="player-slot-1">
+                    <video id="tv-video-player-1" controls autoplay></video>
+                    <iframe id="tv-iframe-player-1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                </div>
+
+                <!-- RANURA 2: Secundaria / Derecha (Pantalla Partida) -->
+                <div class="player-slot" id="player-slot-2" style="display: none;">
+                    <video id="tv-video-player-2" controls autoplay></video>
+                    <iframe id="tv-iframe-player-2" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                    <div class="slot-badge">PANTALLA 2</div>
+                </div>
+
+                <!-- RANURA PiP: Flotante (Esquinas) -->
+                <div class="player-slot pip-slot pip-bottom-right focusable" id="player-slot-pip" tabindex="0" style="display: none;">
+                    <video id="tv-video-player-pip" autoplay></video>
+                    <iframe id="tv-iframe-player-pip" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                    <div class="pip-overlay-controls">
+                        <span>Mini PiP (ENTER rota esquina)</span>
+                    </div>
+                </div>
                 
                 <!-- Overlay de información del canal reproduciendo -->
                 <div class="player-info-overlay" id="player-info">

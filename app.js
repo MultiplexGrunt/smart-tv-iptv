@@ -11,17 +11,23 @@ const CONFIG = {
 
 let appState = {
     currentPlayingUrl: "",
-    hlsPlayer: null,
+    hlsPlayer1: null,
+    hlsPlayer2: null,
+    hlsPlayerPip: null,
     menuHidden: false,          // Estado de visualización a pantalla completa
-    activeBtn: null             // Botón de stream seleccionado actualmente
+    activeBtn: null,            // Botón de stream seleccionado actualmente
+    splitMode: false,
+    pipMode: false,
+    pipCorner: "pip-bottom-right"
 };
 
 // Elementos DOM
 const dom = {
     eventsSection: document.getElementById("tv-events-section"),
     eventsList: document.getElementById("eventos-list"),
-    videoPlayer: document.getElementById("tv-video-player"),
-    iframePlayer: document.getElementById("tv-iframe-player"),
+    playerSection: document.getElementById("tv-player-section"),
+    playerWrapper: document.getElementById("player-wrapper"),
+    playerSlotPip: document.getElementById("player-slot-pip"),
     playingTitle: document.getElementById("playing-channel-title"),
     playingGroup: document.getElementById("playing-channel-group"),
     playerLoader: document.getElementById("player-loader"),
@@ -54,21 +60,24 @@ function initClock() {
 
 // ── CONFIGURACIÓN DE EVENTOS GENERALES ──
 function setupEventListeners() {
-    // Control de errores de video nativo / HLS.js
-    dom.videoPlayer.addEventListener("loadstart", () => {
-        dom.playerLoader.style.display = "flex";
-    });
-    
-    dom.videoPlayer.addEventListener("playing", () => {
-        dom.playerLoader.style.display = "none";
-    });
+    const mainVideo = document.getElementById("tv-video-player-1");
+    if (mainVideo) {
+        // Control de errores de video nativo / HLS.js
+        mainVideo.addEventListener("loadstart", () => {
+            dom.playerLoader.style.display = "flex";
+        });
+        
+        mainVideo.addEventListener("playing", () => {
+            dom.playerLoader.style.display = "none";
+        });
 
-    dom.videoPlayer.addEventListener("error", (e) => {
-        console.error("Error en reproducción:", e);
-        dom.playerLoader.style.display = "none";
-        dom.playingGroup.textContent = "Error: El canal no se puede reproducir o requiere un códec específico.";
-        dom.playingGroup.style.color = "#ff4d4d";
-    });
+        mainVideo.addEventListener("error", (e) => {
+            console.error("Error en reproducción:", e);
+            dom.playerLoader.style.display = "none";
+            dom.playingGroup.textContent = "Error: El canal no se puede reproducir o requiere un códec específico.";
+            dom.playingGroup.style.color = "#ff4d4d";
+        });
+    }
 
     // Capturar teclado para navegación D-Pad
     document.addEventListener("keydown", handleKeyDown);
@@ -147,16 +156,32 @@ function renderLiveEvents(events, container) {
             const langFlag = lk.lang.code === "es" ? "🇪🇸" : lk.lang.code === "us" ? "🇺🇸" : lk.lang.code === "br" ? "🇧🇷" : lk.lang.code === "de" ? "🇩🇪" : "🌐";
 
             let isBtnActive = appState.currentPlayingUrl === lk.url;
+            const pageUrlEnc = encodeURIComponent(lk.url);
+            const streamName = `${ev.title} — ${label}`;
 
             return `
-                <button class="event-stream-btn focusable ${isBtnActive ? 'active-play' : ''}"
-                    data-page-url="${encodeURIComponent(lk.url)}"
-                    data-stream-name="${ev.title} — ${label}"
-                    data-stream-group="${ev.category}"
-                    tabindex="0">
-                    <span>${langFlag} ${label}</span>
-                    <span class="stream-quality ${qualityClass}">${lk.quality.label}</span>
-                </button>`;
+                <div class="stream-row-container">
+                    <button class="event-stream-btn focusable ${isBtnActive ? 'active-play' : ''}"
+                        data-page-url="${pageUrlEnc}"
+                        data-stream-name="${streamName}"
+                        data-stream-group="${ev.category}"
+                        tabindex="0">
+                        <span>${langFlag} ${label}</span>
+                        <span class="stream-quality ${qualityClass}">${lk.quality.label}</span>
+                    </button>
+                    <button class="btn-action-split focusable"
+                        data-page-url="${pageUrlEnc}"
+                        data-stream-name="${streamName}"
+                        data-stream-group="${ev.category}"
+                        tabindex="0"
+                        title="Pantalla Partida (Multi-View)">📺</button>
+                    <button class="btn-action-pip focusable"
+                        data-page-url="${pageUrlEnc}"
+                        data-stream-name="${streamName}"
+                        data-stream-group="${ev.category}"
+                        tabindex="0"
+                        title="Reproducir en PiP Flotante">🖼️</button>
+                </div>`;
         }).join("");
 
         return `
@@ -187,41 +212,74 @@ function renderLiveEvents(events, container) {
     container.dataset.eventsHash = newHash;
     container.innerHTML = newHtml;
 
-    // Asignar eventos de clic y foco
-    container.querySelectorAll(".event-stream-btn").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
-            const name    = btn.dataset.streamName;
-            const group   = btn.dataset.streamGroup;
-            
-            // Marcar botón activo
-            if (appState.activeBtn) {
-                appState.activeBtn.classList.remove("active-play");
-            }
-            appState.activeBtn = btn;
-            btn.classList.add("active-play");
+    // Asignar eventos a los elementos interactivos
+    container.querySelectorAll(".event-column").forEach(col => {
+        
+        // 1. Botón Principal (Reproducir normal)
+        col.querySelectorAll(".event-stream-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
+                const name    = btn.dataset.streamName;
+                const group   = btn.dataset.streamGroup;
+                
+                // Marcar botón activo
+                if (appState.activeBtn) {
+                    appState.activeBtn.classList.remove("active-play");
+                }
+                appState.activeBtn = btn;
+                btn.classList.add("active-play");
 
-            playStream(pageUrl, name, group, true);
+                playStream(pageUrl, name, group, true);
+            });
+
+            btn.addEventListener("focus", () => {
+                highlightColumn(col);
+                activeFocusedElement = btn;
+            });
         });
 
-        // Eventos de foco para iluminar la columna del evento activo
-        btn.addEventListener("focus", () => {
-            // Quitar clase previa de todas las columnas
-            container.querySelectorAll(".event-column").forEach(col => {
-                col.classList.remove("has-focused");
+        // 2. Botón Split (Pantalla Partida)
+        col.querySelectorAll(".btn-action-split").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
+                const name    = btn.dataset.streamName;
+                const group   = btn.dataset.streamGroup;
+                enableSplitScreen(pageUrl, name, group, true);
             });
-            
-            // Agregar al padre
-            const parentCol = btn.closest(".event-column");
-            if (parentCol) {
-                parentCol.classList.add("has-focused");
-                ensureColumnVisible(parentCol);
-            }
-            
-            activeFocusedElement = btn;
+
+            btn.addEventListener("focus", () => {
+                highlightColumn(col);
+                activeFocusedElement = btn;
+            });
+        });
+
+        // 3. Botón PiP (Pantalla Flotante)
+        col.querySelectorAll(".btn-action-pip").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
+                const name    = btn.dataset.streamName;
+                const group   = btn.dataset.streamGroup;
+                enablePipScreen(pageUrl, name, group, true);
+            });
+
+            btn.addEventListener("focus", () => {
+                highlightColumn(col);
+                activeFocusedElement = btn;
+            });
         });
     });
+
+    // Helper para iluminar la columna del partido enfocado
+    function highlightColumn(activeCol) {
+        container.querySelectorAll(".event-column").forEach(col => {
+            col.classList.remove("has-focused");
+        });
+        activeCol.classList.add("has-focused");
+        ensureColumnVisible(activeCol);
+    }
 
     rebuildSpatialIndexes();
 
@@ -287,59 +345,62 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
     }
 }
 
-// ── REPRODUCTOR DE VIDEO (HLS / NATIVO / IFRAME) ──
-function playStream(url, title, group = "Live Event", forceIframe = false) {
-    // Convertir http a https para tecnotv.club para prevenir bloqueos de Mixed Content del navegador
+// ── REPRODUCTOR DE VIDEO ABSTRACTO POR RANURA (SLOT) ──
+function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = false) {
+    console.log(`[Slot ${slotId}] Reproduciendo: ${title} -> ${url} (forceIframe=${forceIframe}, isMuted=${isMuted})`);
+    
+    // Convertir http a https para tecnotv.club para evitar Mixed Content bloqueado por el navegador
     if (url.startsWith("http://tecnotv.club")) {
         url = url.replace("http://tecnotv.club", "https://tecnotv.club");
     }
 
-    console.log(`Iniciando reproducción: ${title} -> ${url} (forceIframe=${forceIframe})`);
-    
-    appState.currentPlayingUrl = url;
-    dom.playingTitle.textContent = title;
-    dom.playingGroup.textContent = group;
-    dom.playingGroup.style.color = "var(--text-muted)";
-    dom.playerLoader.style.display = "flex";
+    const slotEl = document.getElementById(`player-slot-${slotId}`);
+    if (!slotEl) return;
 
-    // 1. Limpiar/pausar reproducciones anteriores
-    if (appState.hlsPlayer) {
-        appState.hlsPlayer.destroy();
-        appState.hlsPlayer = null;
+    // Mostrar el contenedor del slot
+    slotEl.style.display = "block";
+
+    const videoEl = document.getElementById(`tv-video-player-${slotId}`);
+    const iframeEl = document.getElementById(`tv-iframe-player-${slotId}`);
+
+    if (!videoEl || !iframeEl) return;
+
+    // Limpiar reproductor HLS previo de la ranura específica
+    const hlsKey = `hlsPlayer${slotId}`;
+    if (appState[hlsKey]) {
+        appState[hlsKey].destroy();
+        appState[hlsKey] = null;
     }
-    
-    dom.videoPlayer.pause();
-    dom.videoPlayer.src = "";
-    dom.videoPlayer.removeAttribute("src");
+
+    // Limpiar reproducciones anteriores
+    videoEl.pause();
+    videoEl.src = "";
+    videoEl.removeAttribute("src");
     try {
-        dom.videoPlayer.load();
+        videoEl.load();
     } catch(e) {}
     
-    if (dom.iframePlayer) {
-        dom.iframePlayer.src = "about:blank";
-    }
+    iframeEl.src = "about:blank";
+    
+    // Configurar sonido
+    videoEl.muted = isMuted;
 
-    // 2. Determinar si usar el iframe o el elemento video
     const isWebPage = forceIframe;
 
     if (isWebPage) {
-        dom.videoPlayer.style.display = "none";
-        dom.playerLoader.style.display = "none";
+        videoEl.style.display = "none";
+        iframeEl.style.display = "block";
         
-        if (dom.iframePlayer) {
-            dom.iframePlayer.style.display = "block";
-            dom.iframePlayer.src = url;
-        }
+        // En iframe el control de mute no es 100% estándar, pero lo cargamos directo
+        iframeEl.src = url;
     } else {
-        if (dom.iframePlayer) {
-            dom.iframePlayer.style.display = "none";
-        }
-        dom.videoPlayer.style.display = "block";
+        iframeEl.style.display = "none";
+        videoEl.style.display = "block";
 
         const isHls = url.includes(".m3u8") || url.includes("playlist");
 
         if (isHls && Hls.isSupported()) {
-            appState.hlsPlayer = new Hls({
+            appState[hlsKey] = new Hls({
                 maxBufferSize: 10 * 1024 * 1024,
                 maxBufferLength: 10,
                 liveSyncDurationCount: 3,
@@ -347,41 +408,162 @@ function playStream(url, title, group = "Live Event", forceIframe = false) {
                 fLoader: ProxyLoader
             });
             
-            appState.hlsPlayer.loadSource(url);
-            appState.hlsPlayer.attachMedia(dom.videoPlayer);
+            appState[hlsKey].loadSource(url);
+            appState[hlsKey].attachMedia(videoEl);
             
-            appState.hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => {
-                dom.videoPlayer.play().catch(err => {
-                    console.warn("Autoplay bloqueado:", err);
+            appState[hlsKey].on(Hls.Events.MANIFEST_PARSED, () => {
+                videoEl.play().catch(err => {
+                    console.warn(`Autoplay bloqueado en Slot ${slotId}:`, err);
                 });
             });
 
-            appState.hlsPlayer.on(Hls.Events.ERROR, (event, data) => {
+            appState[hlsKey].on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
                     switch (data.type) {
                         case Hls.ErrorTypes.NETWORK_ERROR:
-                            console.error("Error de red HLS fatal, intentando recuperar...");
-                            appState.hlsPlayer.startLoad();
+                            appState[hlsKey].startLoad();
                             break;
                         case Hls.ErrorTypes.MEDIA_ERROR:
-                            console.error("Error de medio HLS fatal, intentando recuperar...");
-                            appState.hlsPlayer.recoverMediaError();
+                            appState[hlsKey].recoverMediaError();
                             break;
                         default:
-                            console.error("Error HLS no recuperable:", data);
-                            dom.videoPlayer.dispatchEvent(new Event("error"));
                             break;
                     }
                 }
             });
         } else {
-            dom.videoPlayer.src = url;
-            dom.videoPlayer.load();
-            dom.videoPlayer.play().catch(err => {
-                console.warn("Autoplay nativo bloqueado:", err);
+            videoEl.src = url;
+            videoEl.load();
+            videoEl.play().catch(err => {
+                console.warn(`Autoplay nativo bloqueado en Slot ${slotId}:`, err);
             });
         }
     }
+}
+
+// Reproducción principal (Slot 1)
+function playStream(url, title, group = "Live Event", forceIframe = false) {
+    // Si estaba activa la pantalla partida, la removemos
+    if (appState.splitMode) {
+        disableSplitScreen();
+    }
+
+    appState.currentPlayingUrl = url;
+    dom.playingTitle.textContent = title;
+    dom.playingGroup.textContent = group;
+    dom.playingGroup.style.color = "var(--text-muted)";
+    dom.playerLoader.style.display = "none"; // El loader se maneja de forma abstracta
+
+    // Reproducir en slot 1 principal
+    playStreamInSlot("1", url, title, group, forceIframe, false);
+}
+
+// Activar Pantalla Partida (Multi-View)
+function enableSplitScreen(url, title, group, forceIframe) {
+    console.log("Activando Pantalla Partida...");
+    
+    appState.splitMode = true;
+    dom.playerWrapper.classList.add("split-mode");
+
+    // Reproducir en Slot 2. Lo cargamos silenciado para asegurar el autoplay sin bloqueos.
+    playStreamInSlot("2", url, title, group, forceIframe, true);
+    
+    // Concatenar títulos en el overlay
+    dom.playingTitle.textContent = `${dom.playingTitle.textContent.split(" | ")[0]} | ${title}`;
+}
+
+// Desactivar Pantalla Partida
+function disableSplitScreen() {
+    if (!appState.splitMode) return;
+    
+    appState.splitMode = false;
+    dom.playerWrapper.classList.remove("split-mode");
+
+    const slotEl2 = document.getElementById("player-slot-2");
+    if (slotEl2) {
+        slotEl2.style.display = "none";
+    }
+
+    const videoEl2 = document.getElementById("tv-video-player-2");
+    const iframeEl2 = document.getElementById("tv-iframe-player-2");
+    
+    if (videoEl2) {
+        videoEl2.pause();
+        videoEl2.src = "";
+        videoEl2.removeAttribute("src");
+    }
+    if (iframeEl2) {
+        iframeEl2.src = "about:blank";
+    }
+
+    if (appState.hlsPlayer2) {
+        appState.hlsPlayer2.destroy();
+        appState.hlsPlayer2 = null;
+    }
+}
+
+// Activar PiP flotante
+function enablePipScreen(url, title, group, forceIframe) {
+    console.log("Activando reproductor PiP flotante...");
+    
+    appState.pipMode = true;
+    const pipSlot = dom.playerSlotPip;
+    if (pipSlot) {
+        pipSlot.style.display = "block";
+        pipSlot.className = `player-slot pip-slot ${appState.pipCorner} focusable`;
+        rebuildSpatialIndexes();
+    }
+
+    // Reproducir en slot PiP en silencio
+    playStreamInSlot("pip", url, title, group, forceIframe, true);
+}
+
+// Rotar esquina del PiP
+function cyclePipCorner() {
+    const corners = ['pip-bottom-right', 'pip-bottom-left', 'pip-top-left', 'pip-top-right'];
+    let currentIndex = corners.indexOf(appState.pipCorner);
+    let nextIndex = (currentIndex + 1) % corners.length;
+    
+    appState.pipCorner = corners[nextIndex];
+    const pipSlot = dom.playerSlotPip;
+    if (pipSlot) {
+        pipSlot.className = `player-slot pip-slot ${appState.pipCorner} focusable`;
+        
+        // Mantener clase de foco espacial si está enfocado
+        if (activeFocusedElement === pipSlot) {
+            pipSlot.classList.add("focused");
+        }
+        console.log(`PiP rotado a: ${appState.pipCorner}`);
+    }
+}
+
+// Desactivar PiP flotante
+function disablePipScreen() {
+    if (!appState.pipMode) return;
+    
+    appState.pipMode = false;
+    const pipSlot = dom.playerSlotPip;
+    if (pipSlot) {
+        pipSlot.style.display = "none";
+    }
+
+    const videoElPip = document.getElementById("tv-video-player-pip");
+    const iframeElPip = document.getElementById("tv-iframe-player-pip");
+    
+    if (videoElPip) {
+        videoElPip.pause();
+        videoElPip.src = "";
+        videoElPip.removeAttribute("src");
+    }
+    if (iframeElPip) {
+        iframeElPip.src = "about:blank";
+    }
+
+    if (appState.hlsPlayerPip) {
+        appState.hlsPlayerPip.destroy();
+        appState.hlsPlayerPip = null;
+    }
+    rebuildSpatialIndexes();
 }
 
 // ── CONTROL DE VISIBILIDAD DE MENÚ (PANTALLA COMPLETA INTERACTIVA) ──
@@ -454,16 +636,19 @@ function handleKeyDown(e) {
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
         e.preventDefault();
         
-        // Si presionamos flecha abajo estando en el último stream de la columna, ocultamos el menú superior
+        // Si presionamos flecha abajo estando en la última fila de la columna, ocultamos el menú superior
         if (key === "ArrowDown" && activeFocusedElement) {
-            const listContainer = activeFocusedElement.closest(".event-links-list");
-            if (listContainer) {
-                const buttons = Array.from(listContainer.querySelectorAll(".event-stream-btn"));
-                const currentIndex = buttons.indexOf(activeFocusedElement);
-                if (currentIndex === buttons.length - 1) {
-                    // Estamos en el último botón de la columna, ocultar menú
-                    setMenuHidden(true);
-                    return;
+            const row = activeFocusedElement.closest(".stream-row-container");
+            if (row) {
+                const listContainer = row.closest(".event-links-list");
+                if (listContainer) {
+                    const rows = Array.from(listContainer.querySelectorAll(".stream-row-container"));
+                    const currentIndex = rows.indexOf(row);
+                    if (currentIndex === rows.length - 1) {
+                        // Estamos en la última fila, ocultar menú
+                        setMenuHidden(true);
+                        return;
+                    }
                 }
             }
         }
@@ -472,12 +657,20 @@ function handleKeyDown(e) {
     } else if (key === "Enter") {
         if (activeFocusedElement) {
             e.preventDefault();
-            activeFocusedElement.click();
+            if (activeFocusedElement === dom.playerSlotPip) {
+                cyclePipCorner();
+            } else {
+                activeFocusedElement.click();
+            }
         }
     } else if (key === "Backspace" || key === "Escape" || key === "GoBack") {
         e.preventDefault();
-        // Alternar visualización del menú superior con retroceso
-        setMenuHidden(!appState.menuHidden);
+        if (appState.pipMode && activeFocusedElement === dom.playerSlotPip) {
+            disablePipScreen();
+        } else {
+            // Alternar visualización del menú superior con retroceso
+            setMenuHidden(!appState.menuHidden);
+        }
     }
 }
 
