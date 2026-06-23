@@ -558,4 +558,43 @@ body {
     font-size: 12px;
 }
 
+/* ── BOTONES DE CERRAR RANURAS ── */
+.slot-close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 32px;
+    height: 32px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 400;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 15;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slot-close-btn:focus, .slot-close-btn.focused {
+    background: #ff0055 !important;
+    border-color: #ff0055 !important;
+    box-shadow: 0 0 10px rgba(255, 0, 85, 0.6) !important;
+    transform: scale(1.1);
+    color: #fff !important;
+}
+
+/* Redimensionar botón de cerrar del slot PiP para que no moleste */
+#player-slot-pip .slot-close-btn {
+    top: 8px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    font-size: 14px;
+}
+
 

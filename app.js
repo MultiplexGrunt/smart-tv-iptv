@@ -32,7 +32,10 @@ const dom = {
     playingGroup: document.getElementById("playing-channel-group"),
     playerLoader: document.getElementById("player-loader"),
     clock: document.getElementById("system-clock"),
-    appContainer: document.querySelector(".tv-app-container")
+    appContainer: document.querySelector(".tv-app-container"),
+    closeBtn1: document.getElementById("btn-close-slot-1"),
+    closeBtn2: document.getElementById("btn-close-slot-2"),
+    closeBtnPip: document.getElementById("btn-close-slot-pip")
 };
 
 // ── INICIALIZACIÓN ──
@@ -76,6 +79,26 @@ function setupEventListeners() {
             dom.playerLoader.style.display = "none";
             dom.playingGroup.textContent = "Error: El canal no se puede reproducir o requiere un códec específico.";
             dom.playingGroup.style.color = "#ff4d4d";
+        });
+    }
+
+    // Manejo de botones de cerrar ranuras
+    if (dom.closeBtn1) {
+        dom.closeBtn1.addEventListener("click", (e) => {
+            e.stopPropagation();
+            stopMainPlayer();
+        });
+    }
+    if (dom.closeBtn2) {
+        dom.closeBtn2.addEventListener("click", (e) => {
+            e.stopPropagation();
+            disableSplitScreen();
+        });
+    }
+    if (dom.closeBtnPip) {
+        dom.closeBtnPip.addEventListener("click", (e) => {
+            e.stopPropagation();
+            disablePipScreen();
         });
     }
 
@@ -456,6 +479,56 @@ function playStream(url, title, group = "Live Event", forceIframe = false) {
 
     // Reproducir en slot 1 principal
     playStreamInSlot("1", url, title, group, forceIframe, false);
+}
+
+// Detener por completo la reproducción en el Slot 1 (Principal)
+function stopMainPlayer() {
+    console.log("Deteniendo reproductor principal...");
+    
+    // Si estaba activa la pantalla partida, la removemos
+    if (appState.splitMode) {
+        disableSplitScreen();
+    }
+    
+    // Si estaba activo el PiP, lo removemos
+    if (appState.pipMode) {
+        disablePipScreen();
+    }
+
+    appState.currentPlayingUrl = "";
+    dom.playingTitle.textContent = "Ningún evento seleccionado";
+    dom.playingGroup.textContent = "Elige una transmisión de la parte superior para comenzar";
+    dom.playingGroup.style.color = "var(--text-muted)";
+    dom.playerLoader.style.display = "none";
+
+    const videoEl1 = document.getElementById("tv-video-player-1");
+    const iframeEl1 = document.getElementById("tv-iframe-player-1");
+
+    if (videoEl1) {
+        videoEl1.pause();
+        videoEl1.src = "";
+        videoEl1.removeAttribute("src");
+        try {
+            videoEl1.load();
+        } catch(e) {}
+    }
+    if (iframeEl1) {
+        iframeEl1.src = "about:blank";
+    }
+
+    if (appState.hlsPlayer1) {
+        appState.hlsPlayer1.destroy();
+        appState.hlsPlayer1 = null;
+    }
+
+    // Remover marcas de canal activo en las listas
+    const container = dom.eventsList;
+    if (container) {
+        container.querySelectorAll(".event-stream-btn.active-play").forEach(btn => {
+            btn.classList.remove("active-play");
+        });
+    }
+    appState.activeBtn = null;
 }
 
 // Activar Pantalla Partida (Multi-View)

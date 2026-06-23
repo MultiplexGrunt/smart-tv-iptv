@@ -47,6 +47,7 @@
                 <div class="player-slot active-slot" id="player-slot-1">
                     <video id="tv-video-player-1" controls autoplay></video>
                     <iframe id="tv-iframe-player-1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                    <button class="slot-close-btn focusable" id="btn-close-slot-1" tabindex="0" title="Detener reproducción">×</button>
                 </div>
 
                 <!-- RANURA 2: Secundaria / Derecha (Pantalla Partida) -->
@@ -54,6 +55,7 @@
                     <video id="tv-video-player-2" controls autoplay></video>
                     <iframe id="tv-iframe-player-2" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
                     <div class="slot-badge">PANTALLA 2</div>
+                    <button class="slot-close-btn focusable" id="btn-close-slot-2" tabindex="0" title="Cerrar pantalla partida">×</button>
                 </div>
 
                 <!-- RANURA PiP: Flotante (Esquinas) -->
@@ -63,6 +65,7 @@
                     <div class="pip-overlay-controls">
                         <span>Mini PiP (ENTER rota esquina)</span>
                     </div>
+                    <button class="slot-close-btn focusable" id="btn-close-slot-pip" tabindex="0" title="Cerrar PiP">×</button>
                 </div>
                 
                 <!-- Overlay de información del canal reproduciendo -->
