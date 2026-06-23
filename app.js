@@ -5,6 +5,7 @@
 // ── CONFIGURACIÓN Y ESTADO GLOBAL ──
 const CONFIG = {
     EVENTS_JSON_URL: "https://streamtpday1.xyz/wc.json",
+    LACANCHA_CALENDARIO_URL: "https://lacancha.tv/es/calendario",
     EVENTS_REFRESH_MS: 60 * 1000,        // Actualizar lista de eventos cada 60s
     CORS_PROXY: "https://api.allorigins.win/raw?url="
 };
@@ -18,7 +19,8 @@ let appState = {
     activeBtn: null,            // Botón de stream seleccionado actualmente
     splitMode: false,
     pipMode: false,
-    pipCorner: "pip-bottom-right"
+    pipCorner: "pip-bottom-right",
+    scores: []                  // Almacén de marcadores deportivos en tiempo real
 };
 
 // Elementos DOM
@@ -129,6 +131,14 @@ async function loadLiveEvents() {
     if (!listEl) return;
 
     try {
+        // 1. Cargar primero los marcadores de La Cancha de forma asíncrona
+        try {
+            await loadLaCanchaScores();
+        } catch (scoreErr) {
+            console.warn("No se pudieron actualizar los marcadores deportivos:", scoreErr);
+        }
+
+        // 2. Cargar eventos en vivo principales
         const proxyUrl = buildProxyUrl(CONFIG.EVENTS_JSON_URL);
         const res = await fetchWithTimeout(proxyUrl, {}, 8000);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -156,6 +166,191 @@ async function loadLiveEvents() {
 }
 
 /**
+ * Descarga y parsea la página de calendario de lacancha.tv para extraer marcadores en tiempo real.
+ */
+async function loadLaCanchaScores() {
+    console.log("Actualizando marcadores de La Cancha...");
+    const proxyUrl = buildProxyUrl(CONFIG.LACANCHA_CALENDARIO_URL);
+    const res = await fetchWithTimeout(proxyUrl, {}, 8000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const html = await res.text();
+    
+    // Limpiar cadenas escapadas del payload RSC de Next.js para simplificar el parseo
+    const cleanHtml = html.replace(/\\"/g, '"');
+    const parsedMatches = [];
+    let pos = 0;
+
+    // Buscar todos los bloques que comiencen con "home_team"
+    while ((pos = cleanHtml.indexOf('"home_team"', pos)) !== -1) {
+        let openBracePos = -1;
+        let braceCount = 0;
+        
+        // Buscar hacia atrás la llave de apertura del objeto
+        for (let i = pos; i >= 0; i--) {
+            if (cleanHtml[i] === '}') braceCount--;
+            if (cleanHtml[i] === '{') {
+                braceCount++;
+                if (braceCount === 1) {
+                    openBracePos = i;
+                    break;
+                }
+            }
+        }
+        
+        if (openBracePos !== -1) {
+            let closeBracePos = -1;
+            braceCount = 0;
+            // Buscar hacia adelante la llave de cierre correspondiente
+            for (let i = openBracePos; i < cleanHtml.length; i++) {
+                if (cleanHtml[i] === '{') braceCount++;
+                if (cleanHtml[i] === '}') {
+                    braceCount--;
+                    if (braceCount === 0) {
+                        closeBracePos = i;
+                        break;
+                    }
+                }
+            }
+            
+            if (closeBracePos !== -1) {
+                const objStr = cleanHtml.slice(openBracePos, closeBracePos + 1);
+                try {
+                    const parsed = JSON.parse(objStr);
+                    // Validar si el objeto representa la estructura de un partido de La Cancha
+                    if (parsed.home_team && parsed.away_team && parsed.hasOwnProperty('home_score')) {
+                        if (!parsedMatches.some(m => m.id === parsed.id)) {
+                            parsedMatches.push(parsed);
+                        }
+                    }
+                } catch (e) {
+                    // Ignorar errores de sintaxis en partes mal recortadas
+                }
+            }
+        }
+        pos += 11;
+    }
+
+    if (parsedMatches.length > 0) {
+        appState.scores = parsedMatches;
+        console.log(`Marcadores actualizados: ${parsedMatches.length} partidos cargados.`);
+    }
+}
+
+/**
+ * Normaliza nombres de equipos (a minúsculas, quita acentos y caracteres especiales).
+ */
+function normalizeTeamName(name) {
+    if (!name) return "";
+    return name.toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // quitar acentos
+        .replace(/&/g, "and")            // reemplazar & por and
+        .replace(/[^a-z0-9 ]/g, "")      // quitar caracteres especiales
+        .trim();
+}
+
+// Diccionario de traducción de español a inglés para emparejar equipos
+const TEAM_TRANSLATION_MAP = {
+    "alemania": "germany",
+    "arabia saudita": "saudi arabia",
+    "argelia": "algeria",
+    "belgica": "belgium",
+    "brasil": "brazil",
+    "cabo verde": "cape verde islands",
+    "camerun": "cameroon",
+    "canada": "canada",
+    "congo dr": "congo dr",
+    "rd congo": "congo dr",
+    "corea del sur": "south korea",
+    "costa de marfil": "ivory coast",
+    "croacia": "croatia",
+    "dinamarca": "denmark",
+    "egipto": "egypt",
+    "escocia": "scotland",
+    "espana": "spain",
+    "estados unidos": "usa",
+    "eeuu": "usa",
+    "francia": "france",
+    "haiti": "haiti",
+    "paises bajos": "netherlands",
+    "holanda": "netherlands",
+    "inglaterra": "england",
+    "iran": "iran",
+    "irak": "iraq",
+    "iraq": "iraq",
+    "japon": "japan",
+    "jordania": "jordan",
+    "marruecos": "morocco",
+    "mexico": "mexico",
+    "noruega": "norway",
+    "nueva zelanda": "new zealand",
+    "panama": "panama",
+    "republica checa": "czechia",
+    "chequia": "czechia",
+    "sudafrica": "south africa",
+    "suecia": "sweden",
+    "suiza": "switzerland",
+    "tunez": "tunisia",
+    "turquia": "turkiye",
+    "uzbekistan": "uzbekistan"
+};
+
+/**
+ * Traduce el nombre del equipo y lo normaliza.
+ */
+function translateAndNormalize(name) {
+    const norm = normalizeTeamName(name);
+    if (TEAM_TRANSLATION_MAP[norm]) {
+        return normalizeTeamName(TEAM_TRANSLATION_MAP[norm]);
+    }
+    return norm;
+}
+
+/**
+ * Busca un partido coincidente en la lista de marcadores mediante emparejamiento fuzzy.
+ */
+function findMatchingMatch(eventTitle, allMatches) {
+    if (!allMatches || allMatches.length === 0) return null;
+
+    const splitters = [" vs ", " - ", " v "];
+    let teamA = "";
+    let teamB = "";
+    
+    for (const splitter of splitters) {
+        if (eventTitle.toLowerCase().includes(splitter)) {
+            const parts = eventTitle.split(new RegExp(splitter, "i"));
+            teamA = parts[0].trim();
+            teamB = parts[1].trim();
+            break;
+        }
+    }
+    
+    if (!teamA || !teamB) return null;
+    
+    const normA = translateAndNormalize(teamA);
+    const normB = translateAndNormalize(teamB);
+    
+    for (const m of allMatches) {
+        const mNormHome = translateAndNormalize(m.home_team);
+        const mNormAway = translateAndNormalize(m.away_team);
+        
+        // Coincidencia directa o cruzada (por si se invierte el orden local-visitante)
+        const matchDirect = (mNormHome.includes(normA) || normA.includes(mNormHome)) && 
+                            (mNormAway.includes(normB) || normB.includes(mNormAway));
+                            
+        const matchCross = (mNormHome.includes(normB) || normB.includes(mNormHome)) && 
+                           (mNormAway.includes(normA) || normA.includes(mNormAway));
+                           
+        if (matchDirect || matchCross) {
+            return m;
+        }
+    }
+    
+    return null;
+}
+
+/**
  * Renderiza la lista de eventos como columnas horizontales.
  */
 function renderLiveEvents(events, container) {
@@ -170,6 +365,42 @@ function renderLiveEvents(events, container) {
             const bIsEs = (b.lang && b.lang.code === "es") ? 1 : 0;
             return bIsEs - aIsEs; // 1 (español) va antes que 0
         });
+
+        // Intentar buscar marcador para este evento en el estado global
+        const match = findMatchingMatch(ev.title, appState.scores);
+        let scoreHtml = "";
+
+        if (match && match.home_score !== null && match.away_score !== null) {
+            const splitters = [" vs ", " - ", " v "];
+            let teamA = "";
+            let teamB = "";
+            for (const splitter of splitters) {
+                if (ev.title.toLowerCase().includes(splitter)) {
+                    const parts = ev.title.split(new RegExp(splitter, "i"));
+                    teamA = parts[0].trim();
+                    teamB = parts[1].trim();
+                    break;
+                }
+            }
+
+            if (teamA && teamB) {
+                let badgeHtml = "";
+                if (match.status === "live" || match.status === "in_play" || match.time_elapsed) {
+                    const elapsed = match.time_elapsed ? `${match.time_elapsed}'` : 'VIVO';
+                    badgeHtml = `<span class="live-score-badge">🔴 ${elapsed}</span>`;
+                } else if (match.status === "finished") {
+                    badgeHtml = `<span class="final-score-badge">FINAL</span>`;
+                }
+
+                scoreHtml = `
+                    <div class="event-score-container">
+                        <span class="event-score-teams">
+                            ${teamA} <b class="event-score-divider">${match.home_score}–${match.away_score}</b> ${teamB}
+                        </span>
+                        ${badgeHtml}
+                    </div>`;
+            }
+        }
 
         const statusIcon = links.some(l => l.status === "live") ? "🔴" : "⏰";
 
@@ -211,6 +442,7 @@ function renderLiveEvents(events, container) {
             <div class="event-column">
                 <div class="event-column-title">
                     <span class="event-title-text">${statusIcon} ${ev.title}</span>
+                    ${scoreHtml}
                     <div class="event-column-time">
                         <span>⏰ ${ev.time}</span>
                         <span style="color:var(--teal-neon);font-weight:700">${ev.category}</span>
@@ -231,6 +463,17 @@ function renderLiveEvents(events, container) {
     const currentHash = container.dataset.eventsHash;
     const newHash = newHtml.length.toString();
     if (currentHash === newHash) return;
+
+    // Guardar referencia del elemento enfocado antes del re-renderizado
+    let savedFocusData = null;
+    if (activeFocusedElement && container.contains(activeFocusedElement)) {
+        savedFocusData = {
+            pageUrl: activeFocusedElement.dataset.pageUrl,
+            isSplit: activeFocusedElement.classList.contains("btn-action-split"),
+            isPip: activeFocusedElement.classList.contains("btn-action-pip"),
+            isStream: activeFocusedElement.classList.contains("event-stream-btn")
+        };
+    }
 
     container.dataset.eventsHash = newHash;
     container.innerHTML = newHtml;
@@ -305,6 +548,25 @@ function renderLiveEvents(events, container) {
     }
 
     rebuildSpatialIndexes();
+
+    // Restaurar foco guardado
+    if (savedFocusData) {
+        let querySelector = "";
+        if (savedFocusData.isSplit) {
+            querySelector = `.btn-action-split[data-page-url="${savedFocusData.pageUrl}"]`;
+        } else if (savedFocusData.isPip) {
+            querySelector = `.btn-action-pip[data-page-url="${savedFocusData.pageUrl}"]`;
+        } else if (savedFocusData.isStream) {
+            querySelector = `.event-stream-btn[data-page-url="${savedFocusData.pageUrl}"]`;
+        }
+
+        if (querySelector) {
+            const newFocusEl = container.querySelector(querySelector);
+            if (newFocusEl) {
+                setFocus(newFocusEl);
+            }
+        }
+    }
 
     // Si no hay elemento enfocado, enfocar el primero
     if (!activeFocusedElement) {
