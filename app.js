@@ -415,8 +415,11 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
     load(context, config, callbacks) {
         const originalUrl = context.url;
         
-        // No aplicar proxy a peticiones locales o si ya es una petición de proxy
-        if (!originalUrl.startsWith('http') || originalUrl.includes('corsproxy.io') || originalUrl.includes('/api/proxy')) {
+        // No aplicar proxy a peticiones locales, si es tecnotv.club (evita fallos de token/IP) o si ya es una petición de proxy
+        if (!originalUrl.startsWith('http') || 
+            originalUrl.includes('tecnotv.club') || 
+            originalUrl.includes('corsproxy.io') || 
+            originalUrl.includes('/api/proxy')) {
             super.load(context, config, callbacks);
             return;
         }
