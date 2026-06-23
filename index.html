@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Reproductor IPTV optimizado para Smart TV. Navegación fluida mediante control remoto y D-pad.">
-    <title>TecnoTV — Smart Player</title>
+    <meta name="description" content="Reproductor de Eventos Deportivos en Vivo optimizado para Smart TV. Navegación fluida mediante control remoto y D-pad.">
+    <title>TecnoTV — Live Sports Player</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
@@ -16,18 +16,41 @@
 
     <div class="tv-app-container">
         
-        <!-- ── REPRODUCTOR DE VIDEO (IZQUIERDA - 70% DE LA PANTALLA) ── -->
+        <!-- ── PANEL DE EVENTOS SUPERIOR (30% DE LA PANTALLA) ── -->
+        <header class="tv-events-section" id="tv-events-section">
+            <div class="header-top-bar">
+                <div class="tv-brand">
+                    <span class="brand-glow"></span>
+                    <span class="brand-title">TecnoTV</span>
+                    <span class="brand-subtitle">Live Sports</span>
+                </div>
+                <div class="header-status">
+                    <span class="live-badge" id="eventos-badge" style="display: none;">LIVE</span>
+                    <div class="tv-clock" id="system-clock">00:00</div>
+                </div>
+            </div>
+            
+            <!-- Contenedor con scroll horizontal de columnas de eventos -->
+            <div class="events-columns-wrapper" id="eventos-list">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p style="font-size:12px;margin-top:5px">Cargando eventos en vivo...</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- ── REPRODUCTOR DE VIDEO INFERIOR (70% DE LA PANTALLA) ── -->
         <section class="tv-player-section">
             <div class="player-wrapper">
                 <!-- Video player HTML5 -->
                 <video id="tv-video-player" controls autoplay></video>
                 <!-- Iframe player para streams externos / eventos -->
-                <iframe id="tv-iframe-player" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="display: none; width: 100%; height: 100%; border: none; background: #000;"></iframe>
+                <iframe id="tv-iframe-player" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
                 
                 <!-- Overlay de información del canal reproduciendo -->
                 <div class="player-info-overlay" id="player-info">
-                    <h2 id="playing-channel-title">Ningún canal seleccionado</h2>
-                    <p id="playing-channel-group">Elige un canal del menú derecho para comenzar a reproducir</p>
+                    <h2 id="playing-channel-title">Ningún evento seleccionado</h2>
+                    <p id="playing-channel-group">Elige una transmisión de la parte superior para comenzar</p>
                 </div>
                 
                 <!-- Indicador de carga -->
@@ -38,133 +61,13 @@
             </div>
         </section>
 
-        <!-- ── MENÚ LATERAL UNIFICADO (DERECHA - 30% DE LA PANTALLA) ── -->
-        <aside class="tv-sidebar">
-            <!-- Cabecera de barra lateral -->
-            <div class="sidebar-header-row">
-                <div class="tv-brand">
-                    <span class="brand-glow"></span>
-                    <span class="brand-title">TecnoTV</span>
-                    <span class="brand-subtitle">Smart Player</span>
-                </div>
-                <div class="sidebar-header-controls">
-                    <div class="tv-clock" id="system-clock">00:00</div>
-                </div>
-            </div>
-
-            <!-- Buscador integrado para navegación D-pad -->
-            <div class="search-bar-container">
-                <input type="text" id="channel-search" class="focusable search-input" placeholder="🔍 Buscar canal..." tabindex="0">
-            </div>
-
-            <!-- ACORDEÓN DE LISTAS M3U -->
-            <nav class="tv-accordion" id="tv-accordion">
-
-                <!-- 0. EVENTOS DEPORTIVOS EN VIVO (streamtpday1.xyz) -->
-                <div class="accordion-group" id="group-eventos">
-                    <button class="accordion-header focusable" data-section="eventos" id="sec-eventos" tabindex="0">
-                        <span class="icon">🔴</span>
-                        <span style="flex:1">EVENTOS EN VIVO</span>
-                        <span class="live-badge" id="eventos-badge" style="display:none">LIVE</span>
-                        <span class="chevron">▶</span>
-                    </button>
-                    <div class="accordion-content" id="eventos-content">
-                        <div class="channels-list" id="eventos-list">
-                            <div class="loading-state">
-                                <div class="spinner"></div>
-                                <p style="font-size:12px;margin-top:5px">Cargando eventos...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 1. PRINCIPAL -->
-                <div class="accordion-group" id="group-principal">
-                    <button class="accordion-header focusable" data-section="lista.m3u" id="sec-principal" tabindex="0">
-                        <span class="icon">📺</span> PRINCIPAL SSIPTV
-                        <span class="chevron">▶</span>
-                    </button>
-                    <div class="accordion-content">
-                        <div class="channels-list"></div>
-                    </div>
-                </div>
-
-                <!-- 2. DEPORTES -->
-                <div class="accordion-group" id="group-deportes">
-                    <button class="accordion-header focusable" data-section="deportes.m3u" id="sec-deportes" tabindex="0">
-                        <span class="icon">🏟️</span> DEPORTES
-                        <span class="chevron">▶</span>
-                    </button>
-                    <div class="accordion-content">
-                        <div class="channels-list"></div>
-                    </div>
-                </div>
-
-                <!-- 3. LISTA 1 -->
-                <div class="accordion-group" id="group-lista1">
-                    <button class="accordion-header focusable" data-section="lista1.m3u" id="sec-lista1" tabindex="0">
-                        <span class="icon">⚡</span> LISTA 1
-                        <span class="chevron">▶</span>
-                    </button>
-                    <div class="accordion-content">
-                        <div class="channels-list"></div>
-                    </div>
-                </div>
-
-                <!-- 4. LISTA 2 -->
-                <div class="accordion-group" id="group-lista2">
-                    <button class="accordion-header focusable" data-section="lista2.m3u" id="sec-lista2" tabindex="0">
-                        <span class="icon">🔥</span> LISTA 2
-                        <span class="chevron">▶</span>
-                    </button>
-                    <div class="accordion-content">
-                        <div class="channels-list"></div>
-                    </div>
-                </div>
-
-                <!-- 5. LISTA 3 -->
-                <div class="accordion-group" id="group-lista3">
-                    <button class="accordion-header focusable" data-section="lista3.m3u" id="sec-lista3" tabindex="0">
-                        <span class="icon">✨</span> LISTA 3
-                        <span class="chevron">▶</span>
-                    </button>
-                    <div class="accordion-content">
-                        <div class="channels-list"></div>
-                    </div>
-                </div>
-
-                <!-- 6. LISTA 4 -->
-                <div class="accordion-group" id="group-lista4">
-                    <button class="accordion-header focusable" data-section="lista4.m3u" id="sec-lista4" tabindex="0">
-                        <span class="icon">🌟</span> LISTA 4
-                        <span class="chevron">▶</span>
-                    </button>
-                    <div class="accordion-content">
-                        <div class="channels-list"></div>
-                    </div>
-                </div>
-
-                <!-- 7. PELÍCULAS -->
-                <div class="accordion-group" id="group-peliculas">
-                    <button class="accordion-header focusable" data-section="peliculas.m3u" id="sec-peliculas" tabindex="0">
-                        <span class="icon">🎬</span> PELICULAS
-                        <span class="chevron">▶</span>
-                    </button>
-                    <div class="accordion-content">
-                        <div class="channels-list"></div>
-                    </div>
-                </div>
-            </nav>
-
-            <!-- GUÍA DE CONTROLES AL PIE -->
-            <div class="sidebar-footer">
-                <footer class="tv-footer-guide">
-                    <div class="guide-item"><span class="key">▲ ▼ ◀ ▶</span> Navegar</div>
-                    <div class="guide-item"><span class="key">ENTER</span> Seleccionar</div>
-                    <div class="guide-item"><span class="key">BACK</span> Menú</div>
-                </footer>
-            </div>
-        </aside>
+        <!-- Guía de controles flotante o inferior muy discreta -->
+        <footer class="tv-footer-guide">
+            <div class="guide-item"><span class="key">◀ ▶</span> Cambiar Evento</div>
+            <div class="guide-item"><span class="key">▲ ▼</span> Seleccionar Stream / Mostrar Menú</div>
+            <div class="guide-item"><span class="key">ENTER</span> Reproducir</div>
+            <div class="guide-item"><span class="key">BACK / ESC</span> Salir</div>
+        </footer>
 
     </div>
 
