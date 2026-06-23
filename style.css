@@ -184,12 +184,12 @@ body {
     display: flex;
     flex-direction: column;
     flex: 1; /* Permite organizar automáticamente abarcando el total del contenedor */
-    min-width: 320px; /* Columnas más grandes */
+    min-width: 380px; /* Columnas más grandes y anchas */
     background: var(--bg-card);
     border: 1px solid var(--border-light);
     border-radius: 12px;
-    padding: 12px;
-    gap: 8px;
+    padding: 8px; /* Más compacto */
+    gap: 5px; /* Más compacto */
     transition: all 0.2s ease;
 }
 
@@ -202,15 +202,17 @@ body {
 
 .event-column-title {
     font-family: var(--font-heading);
-    font-size: 12px;
+    font-size: 11px; /* Fuente más compacta */
     font-weight: 700;
     color: #fff;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    flex-direction: row; /* En la misma línea horizontal */
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    padding-bottom: 6px;
-    margin-bottom: 4px;
+    padding-bottom: 5px;
+    margin-bottom: 2px;
 }
 
 .event-title-text {
@@ -249,9 +251,9 @@ body {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 6px;
+    gap: 4px; /* Más compacto */
     width: 100%;
-    height: 38px;
+    height: 30px; /* Reducción de 38px a 30px */
 }
 
 /* Botones de stream */
@@ -266,8 +268,8 @@ body {
     border: 1px solid var(--border-light);
     border-radius: 8px;
     color: var(--text-main);
-    font-size: 12px;
-    padding: 0 10px;
+    font-size: 11px; /* De 12px a 11px */
+    padding: 0 8px; /* Más compacto */
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     overflow: hidden;
@@ -275,9 +277,9 @@ body {
 
 /* Botones pequeños a la derecha */
 .btn-action-split, .btn-action-pip {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
+    width: 30px; /* De 38px a 30px */
+    height: 30px;
+    min-width: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -286,7 +288,7 @@ body {
     border-radius: 8px;
     color: var(--text-main);
     cursor: pointer;
-    font-size: 13px;
+    font-size: 11px; /* De 13px a 11px */
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

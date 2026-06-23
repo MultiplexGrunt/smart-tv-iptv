@@ -158,10 +158,6 @@ async function loadLiveEvents() {
             return;
         }
 
-        // Mostrar badge LIVE
-        const badge = document.getElementById("eventos-badge");
-        if (badge) badge.style.display = "inline-block";
-
         renderLiveEvents(events, listEl);
 
     } catch (err) {
@@ -375,7 +371,8 @@ function renderLiveEvents(events, container) {
 
         // Intentar buscar marcador para este evento en el estado global
         const match = findMatchingMatch(ev.title, appState.scores);
-        let scoreHtml = "";
+        let headerTitleText = ev.title;
+        let badgeHtml = "";
 
         if (match && match.home_score !== null && match.away_score !== null) {
             const splitters = [" vs ", " - ", " v "];
@@ -391,25 +388,18 @@ function renderLiveEvents(events, container) {
             }
 
             if (teamA && teamB) {
-                let badgeHtml = "";
-                if (match.status === "live" || match.status === "in_play" || match.time_elapsed) {
-                    const elapsed = match.time_elapsed ? `${match.time_elapsed}'` : 'VIVO';
-                    badgeHtml = `<span class="live-score-badge">🔴 ${elapsed}</span>`;
-                } else if (match.status === "finished") {
-                    badgeHtml = `<span class="final-score-badge">FINAL</span>`;
-                }
+                headerTitleText = `${teamA} ${match.home_score}–${match.away_score} ${teamB}`;
+            } else {
+                headerTitleText = `${match.home_team} ${match.home_score}–${match.away_score} ${match.away_team}`;
+            }
 
-                scoreHtml = `
-                    <div class="event-score-container">
-                        <span class="event-score-teams">
-                            ${teamA} <b class="event-score-divider">${match.home_score}–${match.away_score}</b> ${teamB}
-                        </span>
-                        ${badgeHtml}
-                    </div>`;
+            if (match.status === "live" || match.status === "in_play" || match.time_elapsed) {
+                const elapsed = match.time_elapsed ? `${match.time_elapsed}'` : 'VIVO';
+                badgeHtml = `<span class="live-score-badge" style="margin-left: 5px; font-size: 7px; padding: 1px 4px;">🔴 ${elapsed}</span>`;
+            } else if (match.status === "finished") {
+                badgeHtml = `<span class="final-score-badge" style="margin-left: 5px; font-size: 7px; padding: 1px 4px;">FINAL</span>`;
             }
         }
-
-        const statusIcon = links.some(l => l.status === "live") ? "🔴" : "⏰";
 
         const linksHtml = sortedLinks.map(lk => {
             const qualityClass = lk.quality.type === "fhd" ? "fhd" : lk.quality.type === "sd" ? "sd" : "";
@@ -448,12 +438,11 @@ function renderLiveEvents(events, container) {
         return `
             <div class="event-column">
                 <div class="event-column-title">
-                    <span class="event-title-text">${statusIcon} ${ev.title}</span>
-                    ${scoreHtml}
-                    <div class="event-column-time">
-                        <span>⏰ ${ev.time}</span>
-                        <span style="color:var(--teal-neon);font-weight:700">${ev.category}</span>
+                    <div style="display: flex; align-items: center; min-width: 0; flex: 1;">
+                        <span class="event-title-text" style="font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;" title="${headerTitleText}">${headerTitleText}</span>
+                        ${badgeHtml}
                     </div>
+                    <span style="font-size: 10px; color: var(--text-muted); font-weight: 500; margin-left: 8px; flex-shrink: 0;">⏰ ${ev.time}</span>
                 </div>
                 <div class="event-links-list">
                     ${linksHtml}
