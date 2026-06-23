@@ -26,7 +26,6 @@ const dom = {
     playingGroup: document.getElementById("playing-channel-group"),
     playerLoader: document.getElementById("player-loader"),
     clock: document.getElementById("system-clock"),
-    footerGuide: document.querySelector(".tv-footer-guide"),
     appContainer: document.querySelector(".tv-app-container")
 };
 
@@ -387,14 +386,12 @@ function setMenuHidden(hidden) {
     
     if (hidden) {
         dom.eventsSection.classList.add("hidden");
-        dom.footerGuide.classList.add("hidden");
         // Desenfocar elemento actual para que el foco no interfiera
         if (activeFocusedElement) {
             activeFocusedElement.blur();
         }
     } else {
         dom.eventsSection.classList.remove("hidden");
-        dom.footerGuide.classList.remove("hidden");
         
         // Recuperar el foco en el último botón activo o en el primero disponible
         setTimeout(() => {

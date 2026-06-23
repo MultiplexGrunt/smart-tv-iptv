@@ -180,18 +180,16 @@ body {
     border-radius: 2px;
 }
 
-/* Columnas de eventos */
 .event-column {
     display: flex;
     flex-direction: column;
-    width: 250px;
-    min-width: 250px;
+    flex: 1; /* Permite organizar automáticamente abarcando el total del contenedor */
+    min-width: 320px; /* Columnas más grandes */
     background: var(--bg-card);
     border: 1px solid var(--border-light);
     border-radius: 12px;
-    padding: 10px;
-    gap: 6px;
-    flex-shrink: 0;
+    padding: 12px;
+    gap: 8px;
     transition: all 0.2s ease;
 }
 
@@ -418,44 +416,4 @@ body {
     font-size: 12px;
 }
 
-/* ── GUÍA DE CONTROLES AL PIE (FLOTANTE) ── */
-.tv-footer-guide {
-    position: absolute;
-    bottom: 20px;
-    right: 25px;
-    display: flex;
-    gap: 16px;
-    background: rgba(0, 5, 8, 0.85);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    padding: 8px 18px;
-    border-radius: 30px;
-    border: 1px solid var(--border-light);
-    font-size: 11px;
-    color: var(--text-muted);
-    z-index: 10;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    pointer-events: none;
-}
 
-/* Ocultar footer guide cuando el menú esté colapsado */
-.tv-footer-guide.hidden {
-    opacity: 0;
-    transform: translateY(20px);
-}
-
-.tv-footer-guide .guide-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.tv-footer-guide .key {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-}
