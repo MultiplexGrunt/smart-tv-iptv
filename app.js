@@ -20,14 +20,9 @@ let appState = {
     channels: {},               // Canales cacheados por sección: { "lista.m3u": [...] }
     filteredChannels: [],       // Canales filtrados por búsqueda
     currentPlayingUrl: "",
-    playMode: "proxy",          // "proxy" o "native"
     hlsPlayer: null,
     // Estado de eventos en vivo
     liveStream: {
-        pageUrl: null,          // URL de global2.php del stream activo
-        streamUrl: null,        // URL m3u8 actual
-        expiresAt: null,        // Timestamp Unix de expiración del token
-        renewTimer: null,       // Timer de auto-renovación
         activeBtn: null         // Botón activo en el DOM
     }
 };
@@ -37,12 +32,11 @@ const dom = {
     accordion: document.getElementById("tv-accordion"),
     channelSearch: document.getElementById("channel-search"),
     videoPlayer: document.getElementById("tv-video-player"),
+    iframePlayer: document.getElementById("tv-iframe-player"),
     playingTitle: document.getElementById("playing-channel-title"),
     playingGroup: document.getElementById("playing-channel-group"),
     playerLoader: document.getElementById("player-loader"),
     clock: document.getElementById("system-clock"),
-    btnToggleEngine: document.getElementById("btn-toggle-engine"),
-    modeLabel: document.getElementById("mode-label"),
     appContainer: document.querySelector(".tv-app-container")
 };
 
@@ -156,22 +150,7 @@ function setupEventListeners() {
         filterChannels(e.target.value);
     });
 
-    // Botón de modo HLS/Nativo
-    dom.btnToggleEngine.addEventListener("click", () => {
-        if (appState.playMode === "proxy") {
-            appState.playMode = "native";
-            dom.modeLabel.textContent = "NAT";
-            dom.btnToggleEngine.title = "Modo: Nativo (Directo) — click para cambiar";
-        } else {
-            appState.playMode = "proxy";
-            dom.modeLabel.textContent = "HLS";
-            dom.btnToggleEngine.title = "Modo: HLS (Proxy) — click para cambiar";
-        }
-        // Recargar canal si hay alguno reproduciendo
-        if (appState.currentPlayingUrl) {
-            playStream(appState.currentPlayingUrl, dom.playingTitle.textContent, dom.playingGroup.textContent);
-        }
-    });
+
 
     // Control de errores de video
     dom.videoPlayer.addEventListener("loadstart", () => {
@@ -462,7 +441,7 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
 
 // ── REPRODUCTOR DE VIDEO (HLS / NATIVO) ──
 function playStream(url, title, group = "IPTV Stream") {
-    console.log(`Iniciando reproducción de canal: ${title} -> ${url}`);
+    console.log(`Iniciando reproducción: ${title} -> ${url}`);
     
     appState.currentPlayingUrl = url;
     dom.playingTitle.textContent = title;
@@ -470,56 +449,91 @@ function playStream(url, title, group = "IPTV Stream") {
     dom.playingGroup.style.color = "var(--text-muted)";
     dom.playerLoader.style.display = "flex";
 
-    // Destruir reproductor HLS previo si existe
+    // 1. Limpiar/pausar reproducciones anteriores
     if (appState.hlsPlayer) {
         appState.hlsPlayer.destroy();
         appState.hlsPlayer = null;
     }
-
-    const isHls = url.includes(".m3u8") || url.includes("playlist");
-
-    if (isHls && appState.playMode === "proxy" && Hls.isSupported()) {
-        appState.hlsPlayer = new Hls({
-            maxBufferSize: 10 * 1024 * 1024,
-            maxBufferLength: 10,
-            liveSyncDurationCount: 3,
-            pLoader: ProxyLoader,
-            fLoader: ProxyLoader
-        });
-        
-        appState.hlsPlayer.loadSource(url);
-        appState.hlsPlayer.attachMedia(dom.videoPlayer);
-        
-        appState.hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => {
-            dom.videoPlayer.play().catch(err => {
-                console.warn("Autoplay bloqueado:", err);
-            });
-        });
-
-        appState.hlsPlayer.on(Hls.Events.ERROR, (event, data) => {
-            if (data.fatal) {
-                switch (data.type) {
-                    case Hls.ErrorTypes.NETWORK_ERROR:
-                        console.error("Error de red HLS fatal, intentando recuperar...");
-                        appState.hlsPlayer.startLoad();
-                        break;
-                    case Hls.ErrorTypes.MEDIA_ERROR:
-                        console.error("Error de medio HLS fatal, intentando recuperar...");
-                        appState.hlsPlayer.recoverMediaError();
-                        break;
-                    default:
-                        console.error("Error HLS no recuperable:", data);
-                        dom.videoPlayer.dispatchEvent(new Event("error"));
-                        break;
-                }
-            }
-        });
-    } else {
-        dom.videoPlayer.src = url;
+    
+    dom.videoPlayer.pause();
+    dom.videoPlayer.src = "";
+    dom.videoPlayer.removeAttribute("src"); // Remover atributo para detener del todo en algunos browsers
+    try {
         dom.videoPlayer.load();
-        dom.videoPlayer.play().catch(err => {
-            console.warn("Autoplay nativo bloqueado:", err);
-        });
+    } catch(e) {}
+    
+    if (dom.iframePlayer) {
+        dom.iframePlayer.src = "about:blank";
+    }
+
+    // 2. Determinar si es una página web externa (iframe) o un stream directo (m3u8, mp4, etc.)
+    const isWebPage = url.includes(".html") || 
+                      url.includes(".php") || 
+                      url.includes("global.php") ||
+                      (!url.includes(".m3u8") && !url.includes(".mp4") && !url.includes(".mpd") && !url.includes("playlist"));
+
+    if (isWebPage) {
+        // Ocultar video, mostrar iframe
+        dom.videoPlayer.style.display = "none";
+        dom.playerLoader.style.display = "none"; // El iframe tiene su propio indicador visual
+        
+        if (dom.iframePlayer) {
+            dom.iframePlayer.style.display = "block";
+            dom.iframePlayer.src = url;
+        }
+        console.log(`Cargando transmisión en iframe: ${url}`);
+    } else {
+        // Ocultar iframe, mostrar video
+        if (dom.iframePlayer) {
+            dom.iframePlayer.style.display = "none";
+        }
+        dom.videoPlayer.style.display = "block";
+
+        const isHls = url.includes(".m3u8") || url.includes("playlist");
+
+        if (isHls && Hls.isSupported()) {
+            appState.hlsPlayer = new Hls({
+                maxBufferSize: 10 * 1024 * 1024,
+                maxBufferLength: 10,
+                liveSyncDurationCount: 3,
+                pLoader: ProxyLoader,
+                fLoader: ProxyLoader
+            });
+            
+            appState.hlsPlayer.loadSource(url);
+            appState.hlsPlayer.attachMedia(dom.videoPlayer);
+            
+            appState.hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => {
+                dom.videoPlayer.play().catch(err => {
+                    console.warn("Autoplay bloqueado:", err);
+                });
+            });
+
+            appState.hlsPlayer.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.error("Error de red HLS fatal, intentando recuperar...");
+                            appState.hlsPlayer.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.error("Error de medio HLS fatal, intentando recuperar...");
+                            appState.hlsPlayer.recoverMediaError();
+                            break;
+                        default:
+                            console.error("Error HLS no recuperable:", data);
+                            dom.videoPlayer.dispatchEvent(new Event("error"));
+                            break;
+                    }
+                }
+            });
+        } else {
+            dom.videoPlayer.src = url;
+            dom.videoPlayer.load();
+            dom.videoPlayer.play().catch(err => {
+                console.warn("Autoplay nativo bloqueado:", err);
+            });
+        }
     }
 }
 
@@ -770,25 +784,13 @@ async function loadLiveEvents() {
  */
 function renderLiveEvents(events, container) {
     const newHtml = events.map(ev => {
-        // Filtrar solo los links "Global" (sin DRM, reproducibles)
-        const globalLinks = ev.links.filter(lk =>
-            lk.url.includes("streamtpday1.xyz/global")
-        );
-        // Si no hay links Global, mostrar todos de igual forma
-        const links = globalLinks.length > 0 ? globalLinks : ev.links;
-
-        const statusIcon = ev.links.some(l => l.status === "live") ? "🔴" : "⏰";
-        const flagEmojis = (ev.flags || []).map(f => 
-            typeof f === "string" ? "" : ""
-        ).join("");
+        const links = ev.links || [];
+        const statusIcon = links.some(l => l.status === "live") ? "🔴" : "⏰";
 
         const linksHtml = links.map(lk => {
             const qualityClass = lk.quality.type === "fhd" ? "fhd" : lk.quality.type === "sd" ? "sd" : "";
-            const isGlobal = lk.url.includes("streamtpday1.xyz/global");
-            const label = isGlobal ? `${lk.server}` : lk.server;
+            const label = lk.server;
             const langFlag = lk.lang.code === "es" ? "🇪🇸" : lk.lang.code === "us" ? "🇺🇸" : lk.lang.code === "br" ? "🇧🇷" : lk.lang.code === "de" ? "🇩🇪" : "🌐";
-
-            if (!isGlobal) return ""; // Solo mostramos los Global reproducibles
 
             return `
                 <button class="event-stream-btn focusable"
@@ -803,7 +805,7 @@ function renderLiveEvents(events, container) {
                 </button>`;
         }).join("");
 
-        if (!linksHtml.trim()) return ""; // Saltar si no hay links Global
+        if (!linksHtml.trim()) return "";
 
         return `
             <div class="event-item">
@@ -818,7 +820,7 @@ function renderLiveEvents(events, container) {
     }).join("");
 
     if (!newHtml.trim()) {
-        container.innerHTML = `<p style="font-size:12px;color:var(--text-dimmed);text-align:center;padding:10px">No hay streams globales disponibles</p>`;
+        container.innerHTML = `<p style="font-size:12px;color:var(--text-dimmed);text-align:center;padding:10px">No hay streams disponibles</p>`;
         return;
     }
 
@@ -845,134 +847,27 @@ function renderLiveEvents(events, container) {
 }
 
 /**
- * Resuelve la URL m3u8 real llamando al API /extract-stream,
- * reproduce el stream y programa la auto-renovación.
+ * Carga directamente la URL original en el reproductor.
  */
-async function resolveAndPlayLiveStream(btn, pageUrl, name, group) {
-    // Marcar como cargando
-    btn.classList.add("loading-stream");
-    btn.querySelector(".stream-renew-icon").textContent = "⏳";
-
+function resolveAndPlayLiveStream(btn, pageUrl, name, group) {
     // Quitar activo anterior
     if (appState.liveStream.activeBtn) {
         appState.liveStream.activeBtn.classList.remove("active-play");
+        const prevIcon = appState.liveStream.activeBtn.querySelector(".stream-renew-icon");
+        if (prevIcon) prevIcon.textContent = "🔄";
     }
 
-    // Cancelar timer de renovación anterior
-    cancelLiveRenewTimer();
+    // Guardar estado
+    appState.liveStream.activeBtn = btn;
 
-    try {
-        const result = await extractStreamUrl(pageUrl);
+    btn.classList.add("active-play");
+    const icon = btn.querySelector(".stream-renew-icon");
+    if (icon) icon.textContent = "✅";
 
-        if (!result.ok) {
-            throw new Error(result.error || "No se pudo extraer el stream");
-        }
+    console.log(`▶ Cargando evento en el reproductor (iframe): ${name}`);
 
-        // Guardar estado del stream en vivo
-        appState.liveStream.pageUrl    = pageUrl;
-        appState.liveStream.streamUrl  = result.url;
-        appState.liveStream.expiresAt  = result.expiresAt;
-        appState.liveStream.activeBtn  = btn;
-
-        // Mostrar en el reproductor
-        btn.classList.remove("loading-stream");
-        btn.classList.add("active-play");
-        btn.querySelector(".stream-renew-icon").textContent = "✅";
-
-        console.log(`▶ Stream en vivo resuelto: ${result.url}`);
-        console.log(`⏰ Expira en: ${result.expiresIn}s (~${Math.round(result.expiresIn / 60)} min)`);
-
-        // Reproducir con HLS nativo ya que los streams "global" no necesitan proxy de segmentos
-        playStream(result.url, name, group);
-
-        // Programar renovación automática
-        scheduleLiveRenew(pageUrl, name, group, result.expiresIn);
-
-    } catch (err) {
-        console.error("Error resolviendo stream en vivo:", err);
-        btn.classList.remove("loading-stream");
-        btn.querySelector(".stream-renew-icon").textContent = "❌";
-
-        if (dom.playingGroup) {
-            dom.playingGroup.textContent = `⚠️ Error: ${err.message}`;
-            dom.playingGroup.style.color = "#ff4d4d";
-        }
-
-        // Reintentar en 10 segundos
-        setTimeout(() => {
-            btn.querySelector(".stream-renew-icon").textContent = "🔄";
-        }, 10000);
-    }
-}
-
-/**
- * Llama al endpoint /api/extract-stream para obtener la URL m3u8.
- */
-async function extractStreamUrl(pageUrl) {
-    const apiUrl = `/api/extract-stream?page=${encodeURIComponent(pageUrl)}`;
-    const res = await fetchWithTimeout(apiUrl, {}, 10000);
-    return await res.json();
-}
-
-/**
- * Programa la auto-renovación del token antes de que expire.
- * @param {number} expiresInSeconds - Tiempo restante en segundos
- */
-function scheduleLiveRenew(pageUrl, name, group, expiresInSeconds) {
-    cancelLiveRenewTimer();
-
-    if (!expiresInSeconds || expiresInSeconds <= 0) {
-        // Si no sabemos el tiempo, renovar cada 4 horas
-        expiresInSeconds = 4 * 3600;
-    }
-
-    // Renovar CONFIG.TOKEN_RENEW_BUFFER_S segundos ANTES de que expire
-    const renewIn = Math.max(
-        (expiresInSeconds - CONFIG.TOKEN_RENEW_BUFFER_S) * 1000,
-        60 * 1000 // Mínimo 1 minuto
-    );
-
-    console.log(`🔄 Auto-renovación programada en ${Math.round(renewIn / 60000)} minutos`);
-
-    appState.liveStream.renewTimer = setTimeout(async () => {
-        console.log("🔄 Renovando token del stream en vivo automáticamente...");
-        try {
-            const result = await extractStreamUrl(pageUrl);
-            if (result.ok && result.url) {
-                appState.liveStream.streamUrl = result.url;
-                appState.liveStream.expiresAt = result.expiresAt;
-
-                // Reanudar reproducción con el nuevo URL
-                playStream(result.url, name, group);
-
-                // Actualizar ícono del botón activo
-                if (appState.liveStream.activeBtn) {
-                    appState.liveStream.activeBtn.querySelector(".stream-renew-icon").textContent = "✅";
-                }
-
-                console.log(`✅ Token renovado. Nuevo stream: ${result.url}`);
-
-                // Programar la siguiente renovación
-                scheduleLiveRenew(pageUrl, name, group, result.expiresIn);
-            } else {
-                throw new Error(result.error);
-            }
-        } catch (err) {
-            console.error("❌ Error en auto-renovación:", err);
-            // Reintentar renovación en 2 minutos
-            scheduleLiveRenew(pageUrl, name, group, 120 + CONFIG.TOKEN_RENEW_BUFFER_S);
-        }
-    }, renewIn);
-}
-
-/**
- * Cancela el timer de renovación activo.
- */
-function cancelLiveRenewTimer() {
-    if (appState.liveStream.renewTimer) {
-        clearTimeout(appState.liveStream.renewTimer);
-        appState.liveStream.renewTimer = null;
-    }
+    // Reproducir vía iframe
+    playStream(pageUrl, name, group);
 }
 
 /**

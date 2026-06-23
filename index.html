@@ -21,6 +21,8 @@
             <div class="player-wrapper">
                 <!-- Video player HTML5 -->
                 <video id="tv-video-player" controls autoplay></video>
+                <!-- Iframe player para streams externos / eventos -->
+                <iframe id="tv-iframe-player" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="display: none; width: 100%; height: 100%; border: none; background: #000;"></iframe>
                 
                 <!-- Overlay de información del canal reproduciendo -->
                 <div class="player-info-overlay" id="player-info">
@@ -46,10 +48,6 @@
                     <span class="brand-subtitle">Smart Player</span>
                 </div>
                 <div class="sidebar-header-controls">
-                    <button class="mode-toggle-btn focusable" id="btn-toggle-engine" tabindex="0" title="Cambiar modo de reproducción">
-                        <span id="mode-icon">⚙️</span>
-                        <span id="mode-label">HLS</span>
-                    </button>
                     <div class="tv-clock" id="system-clock">00:00</div>
                 </div>
             </div>
