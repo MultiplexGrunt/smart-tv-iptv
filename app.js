@@ -19,7 +19,7 @@ let appState = {
     activeBtn: null,            // Botón de stream seleccionado actualmente
     splitMode: false,
     pipMode: false,
-    pipCorner: "pip-bottom-right",
+    pipCorner: "pip-top-right",
     scores: []                  // Almacén de marcadores deportivos en tiempo real
 };
 
@@ -38,7 +38,8 @@ const dom = {
     closeBtn1: document.getElementById("btn-close-slot-1"),
     closeBtn2: document.getElementById("btn-close-slot-2"),
     closeBtnPip: document.getElementById("btn-close-slot-pip"),
-    btnFullscreenToggle: document.getElementById("btn-fullscreen-toggle")
+    btnFullscreenToggle: document.getElementById("btn-fullscreen-toggle"),
+    positionBtnPip: document.getElementById("btn-position-slot-pip")
 };
 
 // ── INICIALIZACIÓN ──
@@ -102,6 +103,12 @@ function setupEventListeners() {
         dom.closeBtnPip.addEventListener("click", (e) => {
             e.stopPropagation();
             disablePipScreen();
+        });
+    }
+    if (dom.positionBtnPip) {
+        dom.positionBtnPip.addEventListener("click", (e) => {
+            e.stopPropagation();
+            cyclePipCorner();
         });
     }
     if (dom.btnFullscreenToggle) {

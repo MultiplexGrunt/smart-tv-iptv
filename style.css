@@ -695,6 +695,45 @@ body {
     color: #fff;
 }
 
+/* ── BOTÓN PARA CAMBIAR DE POSICIÓN EL PIP ── */
+.slot-position-btn {
+    position: absolute;
+    top: 15px;
+    right: 52px; /* A la izquierda del botón de cerrar */
+    width: 32px;
+    height: 32px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    color: #fff;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 15;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slot-position-btn:focus, .slot-position-btn.focused {
+    background: var(--primary-gradient) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 10px rgba(255, 140, 0, 0.6) !important;
+    transform: scale(1.1);
+    color: #fff !important;
+}
+
+/* Redimensionado compacto especial para el slot PiP */
+#player-slot-pip .slot-position-btn {
+    top: 8px;
+    right: 34px; /* Separación exacta del botón cerrar que mide 22px y está en right 8px */
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+    line-height: 1;
+}
+
+
 
 
 
