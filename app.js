@@ -37,7 +37,8 @@ const dom = {
     appContainer: document.querySelector(".tv-app-container"),
     closeBtn1: document.getElementById("btn-close-slot-1"),
     closeBtn2: document.getElementById("btn-close-slot-2"),
-    closeBtnPip: document.getElementById("btn-close-slot-pip")
+    closeBtnPip: document.getElementById("btn-close-slot-pip"),
+    btnFullscreenToggle: document.getElementById("btn-fullscreen-toggle")
 };
 
 // ── INICIALIZACIÓN ──
@@ -101,6 +102,12 @@ function setupEventListeners() {
         dom.closeBtnPip.addEventListener("click", (e) => {
             e.stopPropagation();
             disablePipScreen();
+        });
+    }
+    if (dom.btnFullscreenToggle) {
+        dom.btnFullscreenToggle.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setMenuHidden(true);
         });
     }
 
@@ -791,6 +798,7 @@ function stopMainPlayer() {
         });
     }
     appState.activeBtn = null;
+    updateFullscreenButtonVisibility();
 }
 
 // Activar Pantalla Partida (Multi-View)
@@ -805,6 +813,8 @@ function enableSplitScreen(url, title, group, forceIframe) {
     
     // Concatenar títulos en el overlay
     dom.playingTitle.textContent = `${dom.playingTitle.textContent.split(" | ")[0]} | ${title}`;
+    
+    updateFullscreenButtonVisibility();
 }
 
 // Desactivar Pantalla Partida
@@ -835,6 +845,7 @@ function disableSplitScreen() {
         appState.hlsPlayer2.destroy();
         appState.hlsPlayer2 = null;
     }
+    updateFullscreenButtonVisibility();
 }
 
 // Activar PiP flotante
@@ -851,6 +862,8 @@ function enablePipScreen(url, title, group, forceIframe) {
 
     // Reproducir en slot PiP en silencio
     playStreamInSlot("pip", url, title, group, forceIframe, true);
+    
+    updateFullscreenButtonVisibility();
 }
 
 // Rotar esquina del PiP
@@ -898,7 +911,7 @@ function disablePipScreen() {
         appState.hlsPlayerPip.destroy();
         appState.hlsPlayerPip = null;
     }
-    rebuildSpatialIndexes();
+    updateFullscreenButtonVisibility();
 }
 
 // ── CONTROL DE VISIBILIDAD DE MENÚ (PANTALLA COMPLETA INTERACTIVA) ──
@@ -1084,4 +1097,27 @@ function buildProxyUrl(targetUrl) {
         return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
     }
     return `${CONFIG.CORS_PROXY}${encodeURIComponent(targetUrl)}`;
+}
+
+/**
+ * Controla la visualización del botón de pantalla completa.
+ * Solo se muestra si hay más de una transmisión activa (Split screen o PiP).
+ */
+function updateFullscreenButtonVisibility() {
+    const btn = dom.btnFullscreenToggle;
+    if (!btn) return;
+    
+    const hasMultipleActive = appState.splitMode || appState.pipMode;
+    if (hasMultipleActive) {
+        btn.style.display = "inline-block";
+    } else {
+        btn.style.display = "none";
+        
+        // Si el botón tenía el foco y se oculta, devolver el foco a un canal
+        if (activeFocusedElement === btn) {
+            const firstBtn = dom.eventsList.querySelector(".event-stream-btn");
+            if (firstBtn) setFocus(firstBtn);
+        }
+    }
+    rebuildSpatialIndexes();
 }

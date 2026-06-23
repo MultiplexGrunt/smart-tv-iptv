@@ -661,5 +661,38 @@ body {
     100% { opacity: 1; transform: scale(1.02); box-shadow: 0 0 8px rgba(255, 0, 85, 0.2); }
 }
 
+/* Ocultación de overlays e información molesta sobre los reproductores */
+.player-info-overlay,
+.pip-overlay-controls,
+.slot-badge {
+    display: none !important;
+}
+
+/* Estilos para el botón de pantalla completa en la cabecera */
+.btn-fullscreen {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    color: var(--text-main);
+    font-family: var(--font-heading);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    letter-spacing: 0.5px;
+    margin-right: 10px;
+    display: none; /* Se activa dinámicamente mediante JS */
+}
+
+.btn-fullscreen:focus, .btn-fullscreen.focused {
+    background: var(--primary-gradient);
+    border-color: var(--primary);
+    box-shadow: 0 0 10px var(--primary-glow);
+    transform: scale(1.05);
+    color: #fff;
+}
+
+
 
 
