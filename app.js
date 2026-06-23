@@ -977,12 +977,21 @@ function cancelLiveRenewTimer() {
 
 /**
  * Construye la URL de proxy correcta según el entorno.
+ * En Vercel y localhost usamos SIEMPRE el proxy serverless /api/proxy.
+ * En otros entornos (SmartTV sin proxy propio) usamos allorigins como fallback.
  */
 function buildProxyUrl(targetUrl) {
-    if (window.location.hostname.includes("vercel.app") || window.location.hostname.includes("localhost")) {
-        // En Vercel y local usamos nuestro proxy serverless
-        // Pero para el JSON de eventos lo pedimos directamente primero
-        return targetUrl;
+    const host = window.location.hostname;
+    const isVercelOrLocal = host.includes("vercel.app") ||
+                            host === "localhost" ||
+                            host === "127.0.0.1" ||
+                            host.includes(".local");
+
+    if (isVercelOrLocal) {
+        // Usar nuestro proxy serverless (sin CORS)
+        return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
     }
+
+    // Fallback para entornos sin proxy propio (SmartTV directo, etc.)
     return `${CONFIG.CORS_PROXY}${encodeURIComponent(targetUrl)}`;
 }
