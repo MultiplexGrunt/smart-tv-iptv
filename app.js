@@ -45,7 +45,7 @@ const dom = {
 // ── INICIALIZACIÓN ──
 document.addEventListener("DOMContentLoaded", () => {
     initClock();
-    
+
     // Cargar eventos en vivo
     loadLiveEvents();
     setInterval(loadLiveEvents, CONFIG.EVENTS_REFRESH_MS);
@@ -73,7 +73,7 @@ function setupEventListeners() {
         mainVideo.addEventListener("loadstart", () => {
             dom.playerLoader.style.display = "flex";
         });
-        
+
         mainVideo.addEventListener("playing", () => {
             dom.playerLoader.style.display = "none";
         });
@@ -185,7 +185,7 @@ async function loadLaCanchaScores() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const html = await res.text();
-    
+
     // Limpiar cadenas escapadas del payload RSC de Next.js para simplificar el parseo
     const cleanHtml = html.replace(/\\"/g, '"');
     const parsedMatches = [];
@@ -195,7 +195,7 @@ async function loadLaCanchaScores() {
     while ((pos = cleanHtml.indexOf('"home_team"', pos)) !== -1) {
         let openBracePos = -1;
         let braceCount = 0;
-        
+
         // Buscar hacia atrás la llave de apertura del objeto
         for (let i = pos; i >= 0; i--) {
             if (cleanHtml[i] === '}') braceCount--;
@@ -207,7 +207,7 @@ async function loadLaCanchaScores() {
                 }
             }
         }
-        
+
         if (openBracePos !== -1) {
             let closeBracePos = -1;
             braceCount = 0;
@@ -222,7 +222,7 @@ async function loadLaCanchaScores() {
                     }
                 }
             }
-            
+
             if (closeBracePos !== -1) {
                 const objStr = cleanHtml.slice(openBracePos, closeBracePos + 1);
                 try {
@@ -326,7 +326,7 @@ function findMatchingMatch(eventTitle, allMatches) {
     const splitters = [" vs ", " - ", " v "];
     let teamA = "";
     let teamB = "";
-    
+
     for (const splitter of splitters) {
         if (eventTitle.toLowerCase().includes(splitter)) {
             const parts = eventTitle.split(new RegExp(splitter, "i"));
@@ -335,28 +335,28 @@ function findMatchingMatch(eventTitle, allMatches) {
             break;
         }
     }
-    
+
     if (!teamA || !teamB) return null;
-    
+
     const normA = translateAndNormalize(teamA);
     const normB = translateAndNormalize(teamB);
-    
+
     for (const m of allMatches) {
         const mNormHome = translateAndNormalize(m.home_team);
         const mNormAway = translateAndNormalize(m.away_team);
-        
+
         // Coincidencia directa o cruzada (por si se invierte el orden local-visitante)
-        const matchDirect = (mNormHome.includes(normA) || normA.includes(mNormHome)) && 
-                            (mNormAway.includes(normB) || normB.includes(mNormAway));
-                            
-        const matchCross = (mNormHome.includes(normB) || normB.includes(mNormHome)) && 
-                           (mNormAway.includes(normA) || normA.includes(mNormAway));
-                           
+        const matchDirect = (mNormHome.includes(normA) || normA.includes(mNormHome)) &&
+            (mNormAway.includes(normB) || normB.includes(mNormAway));
+
+        const matchCross = (mNormHome.includes(normB) || normB.includes(mNormHome)) &&
+            (mNormAway.includes(normA) || normA.includes(mNormAway));
+
         if (matchDirect || matchCross) {
             return m;
         }
     }
-    
+
     return null;
 }
 
@@ -415,6 +415,8 @@ function isTvAztecaMatch(eventTitle, match) {
         ["colombia", "repechaje"],
         ["colombia", "congo dr"],
         ["colombia", "rd congo"],
+        ["colombia", "rd del congo"],
+        ["colombia", "republica del congo"],
         ["repechaje uefa", "mexico"],
         ["ecuador", "germany"],
         ["ecuador", "alemania"],
@@ -463,7 +465,7 @@ function renderLiveEvents(events, container) {
                 quality: { label: "HD", type: "hd" },
                 lang: { code: "es" }
             };
-            
+
             if (sortedLinks.length >= 1) {
                 sortedLinks.splice(1, 0, aztecaLink);
             } else {
@@ -606,15 +608,15 @@ function renderLiveEvents(events, container) {
 
     // Asignar eventos a los elementos interactivos
     container.querySelectorAll(".event-column").forEach(col => {
-        
+
         // 1. Botón Principal (Reproducir normal)
         col.querySelectorAll(".event-stream-btn").forEach(btn => {
             btn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
-                const name    = btn.dataset.streamName;
-                const group   = btn.dataset.streamGroup;
-                
+                const name = btn.dataset.streamName;
+                const group = btn.dataset.streamGroup;
+
                 // Marcar botón activo
                 if (appState.activeBtn) {
                     appState.activeBtn.classList.remove("active-play");
@@ -636,8 +638,8 @@ function renderLiveEvents(events, container) {
             btn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
-                const name    = btn.dataset.streamName;
-                const group   = btn.dataset.streamGroup;
+                const name = btn.dataset.streamName;
+                const group = btn.dataset.streamGroup;
                 enableSplitScreen(pageUrl, name, group, true);
             });
 
@@ -652,8 +654,8 @@ function renderLiveEvents(events, container) {
             btn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
-                const name    = btn.dataset.streamName;
-                const group   = btn.dataset.streamGroup;
+                const name = btn.dataset.streamName;
+                const group = btn.dataset.streamGroup;
                 enablePipScreen(pageUrl, name, group, true);
             });
 
@@ -699,7 +701,7 @@ function renderLiveEvents(events, container) {
         const firstBtn = container.querySelector(".event-stream-btn");
         if (firstBtn) {
             setFocus(firstBtn);
-            
+
             // Auto-reproducción automática del primer canal al ingresar a la app
             if (!appState.currentPlayingUrl) {
                 console.log("Auto-reproduciendo primer canal del primer evento al ingresar...");
@@ -729,12 +731,12 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
     }
     load(context, config, callbacks) {
         const originalUrl = context.url;
-        
+
         // No aplicar proxy a peticiones locales, tecnotv.club o dai.google.com
-        if (!originalUrl.startsWith('http') || 
-            originalUrl.includes('tecnotv.club') || 
+        if (!originalUrl.startsWith('http') ||
+            originalUrl.includes('tecnotv.club') ||
             originalUrl.includes('dai.google.com') ||
-            originalUrl.includes('corsproxy.io') || 
+            originalUrl.includes('corsproxy.io') ||
             originalUrl.includes('/api/proxy')) {
             super.load(context, config, callbacks);
             return;
@@ -750,7 +752,7 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
                 proxyUrl = `https://corsproxy.io/?${encodeURIComponent(originalUrl)}`;
             }
         }
-        
+
         context.url = proxyUrl;
         super.load(context, config, callbacks);
     }
@@ -759,7 +761,7 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
 // ── REPRODUCTOR DE VIDEO ABSTRACTO POR RANURA (SLOT) ──
 async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = false) {
     console.log(`[Slot ${slotId}] Reproduciendo: ${title} -> ${url} (forceIframe=${forceIframe}, isMuted=${isMuted})`);
-    
+
     // Interceptar señal de TV Azteca para cargarla en un iframe personalizado y limpio
     const isAztecaUrl = url.includes("tvazteca.com/aztecadeportes/azteca-deportes-network-en-vivo");
     let targetUrl = url;
@@ -770,13 +772,13 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
         console.log(`[Slot ${slotId}] Interceptada señal de TV Azteca. Cargando HTML modificado para ocultar elementos molestos...`);
         actualForceIframe = true; // Forzar el uso de iframe
         dom.playerLoader.style.display = "flex";
-        
+
         try {
             const proxyUrl = buildProxyUrl(url);
             const res = await fetchWithTimeout(proxyUrl, {}, 6000);
             if (res.ok) {
                 const html = await res.text();
-                
+
                 const baseTag = '<base href="https://www.tvazteca.com/">';
                 const customStyles = `
 <style id="azteca-player-cleaner">
@@ -833,7 +835,7 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
     }
 </style>
 `;
-                
+
                 let modified = html;
                 if (modified.includes("<head>")) {
                     modified = modified.replace("<head>", `<head>\n${baseTag}\n${customStyles}`);
@@ -842,7 +844,7 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
                 } else {
                     modified = baseTag + customStyles + modified;
                 }
-                
+
                 modifiedAztecaHtml = modified;
                 console.log(`[Slot ${slotId}] HTML de TV Azteca inyectado con estilos de limpieza.`);
             } else {
@@ -886,11 +888,11 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
     videoEl.removeAttribute("src");
     try {
         videoEl.load();
-    } catch(e) {}
-    
+    } catch (e) { }
+
     iframeEl.src = "about:blank";
     iframeEl.removeAttribute("srcdoc");
-    
+
     // Configurar sonido
     videoEl.muted = isMuted;
 
@@ -899,7 +901,7 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
     if (isWebPage) {
         videoEl.style.display = "none";
         iframeEl.style.display = "block";
-        
+
         // En iframe el control de mute no es 100% estándar, pero lo cargamos directo
         if (isAztecaUrl && modifiedAztecaHtml) {
             iframeEl.removeAttribute("src");
@@ -922,10 +924,10 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
                 pLoader: ProxyLoader,
                 fLoader: ProxyLoader
             });
-            
+
             appState[hlsKey].loadSource(targetUrl);
             appState[hlsKey].attachMedia(videoEl);
-            
+
             appState[hlsKey].on(Hls.Events.MANIFEST_PARSED, () => {
                 videoEl.play().catch(err => {
                     console.warn(`Autoplay bloqueado en Slot ${slotId}:`, err);
@@ -976,12 +978,12 @@ function playStream(url, title, group = "Live Event", forceIframe = false) {
 // Detener por completo la reproducción en el Slot 1 (Principal)
 function stopMainPlayer() {
     console.log("Deteniendo reproductor principal...");
-    
+
     // Si estaba activa la pantalla partida, la removemos
     if (appState.splitMode) {
         disableSplitScreen();
     }
-    
+
     // Si estaba activo el PiP, lo removemos
     if (appState.pipMode) {
         disablePipScreen();
@@ -1002,7 +1004,7 @@ function stopMainPlayer() {
         videoEl1.removeAttribute("src");
         try {
             videoEl1.load();
-        } catch(e) {}
+        } catch (e) { }
     }
     if (iframeEl1) {
         iframeEl1.src = "about:blank";
@@ -1028,23 +1030,23 @@ function stopMainPlayer() {
 // Activar Pantalla Partida (Multi-View)
 function enableSplitScreen(url, title, group, forceIframe) {
     console.log("Activando Pantalla Partida...");
-    
+
     appState.splitMode = true;
     dom.playerWrapper.classList.add("split-mode");
 
     // Reproducir en Slot 2. Lo cargamos silenciado para asegurar el autoplay sin bloqueos.
     playStreamInSlot("2", url, title, group, forceIframe, true);
-    
+
     // Concatenar títulos en el overlay
     dom.playingTitle.textContent = `${dom.playingTitle.textContent.split(" | ")[0]} | ${title}`;
-    
+
     updateFullscreenButtonVisibility();
 }
 
 // Desactivar Pantalla Partida
 function disableSplitScreen() {
     if (!appState.splitMode) return;
-    
+
     appState.splitMode = false;
     dom.playerWrapper.classList.remove("split-mode");
 
@@ -1055,7 +1057,7 @@ function disableSplitScreen() {
 
     const videoEl2 = document.getElementById("tv-video-player-2");
     const iframeEl2 = document.getElementById("tv-iframe-player-2");
-    
+
     if (videoEl2) {
         videoEl2.pause();
         videoEl2.src = "";
@@ -1076,7 +1078,7 @@ function disableSplitScreen() {
 // Activar PiP flotante
 function enablePipScreen(url, title, group, forceIframe) {
     console.log("Activando reproductor PiP flotante...");
-    
+
     appState.pipMode = true;
     const pipSlot = dom.playerSlotPip;
     if (pipSlot) {
@@ -1087,7 +1089,7 @@ function enablePipScreen(url, title, group, forceIframe) {
 
     // Reproducir en slot PiP en silencio
     playStreamInSlot("pip", url, title, group, forceIframe, true);
-    
+
     updateFullscreenButtonVisibility();
 }
 
@@ -1096,12 +1098,12 @@ function cyclePipCorner() {
     const corners = ['pip-bottom-right', 'pip-bottom-left', 'pip-top-left', 'pip-top-right'];
     let currentIndex = corners.indexOf(appState.pipCorner);
     let nextIndex = (currentIndex + 1) % corners.length;
-    
+
     appState.pipCorner = corners[nextIndex];
     const pipSlot = dom.playerSlotPip;
     if (pipSlot) {
         pipSlot.className = `player-slot pip-slot ${appState.pipCorner} focusable`;
-        
+
         // Mantener clase de foco espacial si está enfocado
         if (activeFocusedElement === pipSlot) {
             pipSlot.classList.add("focused");
@@ -1113,7 +1115,7 @@ function cyclePipCorner() {
 // Desactivar PiP flotante
 function disablePipScreen() {
     if (!appState.pipMode) return;
-    
+
     appState.pipMode = false;
     const pipSlot = dom.playerSlotPip;
     if (pipSlot) {
@@ -1122,7 +1124,7 @@ function disablePipScreen() {
 
     const videoElPip = document.getElementById("tv-video-player-pip");
     const iframeElPip = document.getElementById("tv-iframe-player-pip");
-    
+
     if (videoElPip) {
         videoElPip.pause();
         videoElPip.src = "";
@@ -1143,9 +1145,9 @@ function disablePipScreen() {
 // ── CONTROL DE VISIBILIDAD DE MENÚ (PANTALLA COMPLETA INTERACTIVA) ──
 function setMenuHidden(hidden) {
     if (appState.menuHidden === hidden) return;
-    
+
     appState.menuHidden = hidden;
-    
+
     if (hidden) {
         dom.eventsSection.classList.add("hidden");
         // Desenfocar elemento actual para que el foco no interfiera
@@ -1154,7 +1156,7 @@ function setMenuHidden(hidden) {
         }
     } else {
         dom.eventsSection.classList.remove("hidden");
-        
+
         // Recuperar el foco en el último botón activo o en el primero disponible
         setTimeout(() => {
             if (appState.activeBtn) {
@@ -1173,11 +1175,11 @@ let focusableElements = [];
 
 function setFocus(element) {
     if (!element) return;
-    
+
     if (activeFocusedElement) {
         activeFocusedElement.classList.remove("focused");
     }
-    
+
     activeFocusedElement = element;
     activeFocusedElement.classList.add("focused");
     activeFocusedElement.focus();
@@ -1187,7 +1189,7 @@ function rebuildSpatialIndexes() {
     focusableElements = Array.from(document.querySelectorAll(".focusable")).filter(el => {
         return el.offsetWidth > 0 && el.offsetHeight > 0;
     });
-    
+
     if (activeFocusedElement && !focusableElements.includes(activeFocusedElement)) {
         const fallback = focusableElements[0];
         if (fallback) setFocus(fallback);
@@ -1209,7 +1211,7 @@ function handleKeyDown(e) {
 
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
         e.preventDefault();
-        
+
         // Si presionamos flecha abajo estando en la última fila de la columna, ocultamos el menú superior
         if (key === "ArrowDown" && activeFocusedElement) {
             const row = activeFocusedElement.closest(".stream-row-container");
@@ -1315,9 +1317,9 @@ function navigateSpatial(direction) {
 function buildProxyUrl(targetUrl) {
     const host = window.location.hostname;
     const isVercelOrLocal = host.includes("vercel.app") ||
-                            host === "localhost" ||
-                            host === "127.0.0.1" ||
-                            host.includes(".local");
+        host === "localhost" ||
+        host === "127.0.0.1" ||
+        host.includes(".local");
 
     if (isVercelOrLocal) {
         return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
@@ -1332,13 +1334,13 @@ function buildProxyUrl(targetUrl) {
 function updateFullscreenButtonVisibility() {
     const btn = dom.btnFullscreenToggle;
     if (!btn) return;
-    
+
     const hasMultipleActive = appState.splitMode || appState.pipMode;
     if (hasMultipleActive) {
         btn.style.display = "inline-block";
     } else {
         btn.style.display = "none";
-        
+
         // Si el botón tenía el foco y se oculta, devolver el foco a un canal
         if (activeFocusedElement === btn) {
             const firstBtn = dom.eventsList.querySelector(".event-stream-btn");
