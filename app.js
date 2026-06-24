@@ -22,7 +22,12 @@ let appState = {
     pipCorner: "pip-top-left",
     pipSize: "medium",          // Tamaño de PiP: "small", "medium", "large"
     scores: [],                  // Almacén de marcadores deportivos en tiempo real
-    audioSplit: false           // Estado de audio dividido
+    audioSplit: false,           // Estado de audio dividido
+    slotsData: {
+        "1": null,
+        "2": null,
+        "pip": null
+    }
 };
 
 // Elementos DOM
@@ -93,23 +98,23 @@ function setupEventListeners() {
         });
     }
 
-    // Manejo de botones de cerrar ranuras
+    // Manejo de botones de cerrar ranuras con reorganización inteligente
     if (dom.closeBtn1) {
         dom.closeBtn1.addEventListener("click", (e) => {
             e.stopPropagation();
-            stopMainPlayer();
+            handleCloseSlot1();
         });
     }
     if (dom.closeBtn2) {
         dom.closeBtn2.addEventListener("click", (e) => {
             e.stopPropagation();
-            disableSplitScreen();
+            handleCloseSlot2();
         });
     }
     if (dom.closeBtnPip) {
         dom.closeBtnPip.addEventListener("click", (e) => {
             e.stopPropagation();
-            disablePipScreen();
+            handleCloseSlotPip();
         });
     }
     if (dom.positionBtnPip) {
@@ -702,6 +707,8 @@ function renderLiveEvents(events, container) {
             const langFlag = lk.lang.code === "es" ? "🇪🇸" : lk.lang.code === "us" ? "🇺🇸" : lk.lang.code === "br" ? "🇧🇷" : lk.lang.code === "de" ? "🇩🇪" : "🌐";
 
             let isBtnActive = appState.currentPlayingUrl === lk.url;
+            let isSplitActive = appState.slotsData && appState.slotsData["2"] && appState.slotsData["2"].url === lk.url;
+            let isPipActive = appState.slotsData && appState.slotsData["pip"] && appState.slotsData["pip"].url === lk.url;
             const pageUrlEnc = encodeURIComponent(lk.url);
             const streamName = `${ev.title} — ${label}`;
 
@@ -715,13 +722,13 @@ function renderLiveEvents(events, container) {
                         <span>${langFlag} ${label}</span>
                         <span class="stream-quality ${qualityClass}">${lk.quality.label}</span>
                     </button>
-                    <button class="btn-action-split focusable"
+                    <button class="btn-action-split focusable ${isSplitActive ? 'active-play' : ''}"
                         data-page-url="${pageUrlEnc}"
                         data-stream-name="${streamName}"
                         data-stream-group="${ev.category}"
                         tabindex="0"
                         title="Pantalla Partida (Multi-View)">📺</button>
-                    <button class="btn-action-pip focusable"
+                    <button class="btn-action-pip focusable ${isPipActive ? 'active-play' : ''}"
                         data-page-url="${pageUrlEnc}"
                         data-stream-name="${streamName}"
                         data-stream-group="${ev.category}"
@@ -963,6 +970,12 @@ async function resolveM3u8FromWebPage(pageUrl) {
 async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = false) {
     console.log(`[Slot ${slotId}] Reproduciendo: ${title} -> ${url} (forceIframe=${forceIframe}, isMuted=${isMuted})`);
 
+    // Almacenar datos en el estado global para la reorganización inteligente
+    if (!appState.slotsData) {
+        appState.slotsData = { "1": null, "2": null, "pip": null };
+    }
+    appState.slotsData[slotId] = { url, title, group, forceIframe };
+
     // Interceptar señal de TV Azteca para cargarla en un iframe personalizado y limpio
     const isAztecaUrl = url.includes("tvazteca.com/aztecadeportes/azteca-deportes-network-en-vivo");
     let targetUrl = url;
@@ -1202,6 +1215,21 @@ function playStream(url, title, group = "Live Event", forceIframe = false) {
     dom.playingGroup.style.color = "var(--text-muted)";
     dom.playerLoader.style.display = "none"; // El loader se maneja de forma abstracta
 
+    // Sincronizar botón activo principal en el DOM
+    const container = dom.eventsList;
+    if (container) {
+        container.querySelectorAll(".event-stream-btn.active-play").forEach(btn => {
+            btn.classList.remove("active-play");
+        });
+        const btn1 = container.querySelector(`.event-stream-btn[data-page-url="${encodeURIComponent(url)}"]`);
+        if (btn1) {
+            appState.activeBtn = btn1;
+            btn1.classList.add("active-play");
+        } else {
+            appState.activeBtn = null;
+        }
+    }
+
     // Reproducir en slot 1 principal
     playStreamInSlot("1", url, title, group, forceIframe, false);
 }
@@ -1247,6 +1275,11 @@ function stopMainPlayer() {
         appState.hlsPlayer1 = null;
     }
 
+    // Limpiar datos de reproducción de la ranura 1
+    if (appState.slotsData) {
+        appState.slotsData["1"] = null;
+    }
+
     // Remover marcas de canal activo en las listas
     const container = dom.eventsList;
     if (container) {
@@ -1275,6 +1308,18 @@ function enableSplitScreen(url, title, group, forceIframe) {
 
     if (dom.splitResizer) {
         dom.splitResizer.style.display = "flex";
+    }
+
+    // Sincronizar botón split activo en el DOM
+    const container = dom.eventsList;
+    if (container) {
+        container.querySelectorAll(".btn-action-split.active-play").forEach(btn => {
+            btn.classList.remove("active-play");
+        });
+        const btnSplit = container.querySelector(`.btn-action-split[data-page-url="${encodeURIComponent(url)}"]`);
+        if (btnSplit) {
+            btnSplit.classList.add("active-play");
+        }
     }
 
     // Reproducir en Slot 2. Lo cargamos silenciado para asegurar el autoplay sin bloqueos.
@@ -1329,6 +1374,19 @@ function disableSplitScreen() {
         appState.hlsPlayer2 = null;
     }
 
+    // Limpiar datos de reproducción del slot 2
+    if (appState.slotsData) {
+        appState.slotsData["2"] = null;
+    }
+
+    // Sincronizar y remover marcas de botón split en el DOM
+    const container = dom.eventsList;
+    if (container) {
+        container.querySelectorAll(".btn-action-split.active-play").forEach(btn => {
+            btn.classList.remove("active-play");
+        });
+    }
+
     // Restablecer audio dividido
     if (appState.audioSplit) {
         appState.audioSplit = false;
@@ -1341,6 +1399,11 @@ function disableSplitScreen() {
         if (dom.btnAudioSplit) {
             dom.btnAudioSplit.classList.remove("active-play");
         }
+    }
+
+    // Actualizar el título principal removiendo la segunda pantalla
+    if (dom.playingTitle.textContent.includes(" | ")) {
+        dom.playingTitle.textContent = dom.playingTitle.textContent.split(" | ")[0];
     }
 
     updateFullscreenButtonVisibility();
@@ -1366,6 +1429,18 @@ function enablePipScreen(url, title, group, forceIframe) {
         applyPipSize();
         
         rebuildSpatialIndexes();
+    }
+
+    // Sincronizar botón PiP activo en el DOM
+    const container = dom.eventsList;
+    if (container) {
+        container.querySelectorAll(".btn-action-pip.active-play").forEach(btn => {
+            btn.classList.remove("active-play");
+        });
+        const btnPip = container.querySelector(`.btn-action-pip[data-page-url="${encodeURIComponent(url)}"]`);
+        if (btnPip) {
+            btnPip.classList.add("active-play");
+        }
     }
 
     // Reproducir en slot PiP en silencio
@@ -1484,7 +1559,91 @@ function disablePipScreen() {
         appState.hlsPlayerPip.destroy();
         appState.hlsPlayerPip = null;
     }
+
+    // Limpiar datos de reproducción del slot pip
+    if (appState.slotsData) {
+        appState.slotsData["pip"] = null;
+    }
+
+    // Sincronizar y remover marcas de botón PiP en el DOM
+    const container = dom.eventsList;
+    if (container) {
+        container.querySelectorAll(".btn-action-pip.active-play").forEach(btn => {
+            btn.classList.remove("active-play");
+        });
+    }
+
     updateFullscreenButtonVisibility();
+    rebuildSpatialIndexes();
+}
+
+// ── MANEJADORES DE CIERRE INTELIGENTE (REORGANIZACIÓN DINÁMICA DE SLOTS) ──
+function handleCloseSlot1() {
+    console.log("[Smart Close] Cerrando Slot 1...");
+    if (appState.splitMode && appState.pipMode) {
+        // Caso 3 pantallas: Cierra 1. Promueve 2 -> 1 y Pip -> 2. Desactiva Pip.
+        const data2 = appState.slotsData["2"];
+        const dataPip = appState.slotsData["pip"];
+
+        if (data2 && dataPip) {
+            // Promover 2 a 1
+            playStream(data2.url, data2.title, data2.group, data2.forceIframe);
+            // Promover PiP a 2
+            enableSplitScreen(dataPip.url, dataPip.title, dataPip.group, dataPip.forceIframe);
+            // Cerrar PiP
+            disablePipScreen();
+        } else if (data2) {
+            // Fallback si no hay datos de PiP: Promover 2 a 1 y desactivar PiP
+            playStream(data2.url, data2.title, data2.group, data2.forceIframe);
+            disablePipScreen();
+        } else {
+            // Fallback total
+            stopMainPlayer();
+        }
+    }
+    else if (appState.splitMode) {
+        // Caso 2 pantallas: Cierra 1. Promueve 2 -> 1. Desactiva Split.
+        const data2 = appState.slotsData["2"];
+
+        if (data2) {
+            // Promover 2 a 1 (esto internamente limpia y deshabilita el slot 2)
+            playStream(data2.url, data2.title, data2.group, data2.forceIframe);
+        } else {
+            stopMainPlayer();
+        }
+    }
+    else {
+        // Caso 1 pantalla: Cierra 1. Apaga todo.
+        stopMainPlayer();
+    }
+}
+
+function handleCloseSlot2() {
+    console.log("[Smart Close] Cerrando Slot 2...");
+    if (appState.splitMode && appState.pipMode) {
+        // Caso 3 pantallas: Cierra 2. Promueve Pip -> 2. Desactiva Pip.
+        const dataPip = appState.slotsData["pip"];
+
+        if (dataPip) {
+            // Desactivar slot 2 anterior
+            disableSplitScreen();
+            // Habilitar split con datos del PiP
+            enableSplitScreen(dataPip.url, dataPip.title, dataPip.group, dataPip.forceIframe);
+            // Cerrar PiP
+            disablePipScreen();
+        } else {
+            disableSplitScreen();
+        }
+    }
+    else {
+        // Caso 2 pantallas: Cierra 2. Desactiva Split.
+        disableSplitScreen();
+    }
+}
+
+function handleCloseSlotPip() {
+    console.log("[Smart Close] Cerrando Slot PiP...");
+    disablePipScreen();
 }
 
 // Funciones helper para alternar pantalla completa nativa del navegador
