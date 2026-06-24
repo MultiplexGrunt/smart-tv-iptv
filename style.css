@@ -843,6 +843,28 @@ body {
     display: none;
 }
 
+/* Forzar visualización correcta del contenedor principal en pantalla completa nativa */
+.tv-app-container:fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    background: #000 !important;
+}
+.tv-app-container:-webkit-full-screen {
+    width: 100vw !important;
+    height: 100vh !important;
+    background: #000 !important;
+}
+.tv-app-container:-moz-full-screen {
+    width: 100vw !important;
+    height: 100vh !important;
+    background: #000 !important;
+}
+.tv-app-container:-ms-fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    background: #000 !important;
+}
+
 
 
 

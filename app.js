@@ -131,6 +131,21 @@ function setupEventListeners() {
     // Configurar eventos de arrastre del divisor de pantalla partida
     setupSplitResizerEvents();
 
+    // Sincronizar salida de pantalla completa nativa (cuando el usuario presiona ESC)
+    const syncFullscreen = () => {
+        const isBrowserFullscreen = !!(
+            document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.mozFullScreenElement ||
+            document.msFullscreenElement
+        );
+        setMenuHidden(isBrowserFullscreen);
+    };
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    document.addEventListener("webkitfullscreenchange", syncFullscreen);
+    document.addEventListener("mozfullscreenchange", syncFullscreen);
+    document.addEventListener("MSFullscreenChange", syncFullscreen);
+
     // Capturar teclado para navegación D-Pad
     document.addEventListener("keydown", handleKeyDown);
 }
@@ -1264,6 +1279,37 @@ function disablePipScreen() {
     updateFullscreenButtonVisibility();
 }
 
+// Funciones helper para alternar pantalla completa nativa del navegador
+function requestBrowserFullscreen() {
+    const el = dom.appContainer || document.querySelector(".tv-app-container") || document.documentElement;
+    if (el.requestFullscreen) {
+        el.requestFullscreen().catch(err => {
+            console.warn("Fullscreen request failed on appContainer, trying documentElement:", err);
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(err2 => console.error("DocumentElement fullscreen failed:", err2));
+            }
+        });
+    } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+    } else if (el.mozRequestFullScreen) {
+        el.mozRequestFullScreen();
+    } else if (el.msRequestFullscreen) {
+        el.msRequestFullscreen();
+    }
+}
+
+function exitBrowserFullscreen() {
+    if (document.exitFullscreen) {
+        document.exitFullscreen().catch(err => console.warn("Fullscreen exit failed:", err));
+    } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+    } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+    }
+}
+
 // ── CONTROL DE VISIBILIDAD DE MENÚ (PANTALLA COMPLETA INTERACTIVA) ──
 function setMenuHidden(hidden) {
     if (appState.menuHidden === hidden) return;
@@ -1278,6 +1324,17 @@ function setMenuHidden(hidden) {
         // Desenfocar elemento actual para que el foco no interfiera
         if (activeFocusedElement) {
             activeFocusedElement.blur();
+        }
+
+        // Activar pantalla completa nativa en el navegador si no está activa
+        const isBrowserFullscreen = !!(
+            document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.mozFullScreenElement ||
+            document.msFullscreenElement
+        );
+        if (!isBrowserFullscreen) {
+            requestBrowserFullscreen();
         }
     } else {
         dom.eventsSection.classList.remove("hidden");
@@ -1294,6 +1351,17 @@ function setMenuHidden(hidden) {
                 if (firstBtn) setFocus(firstBtn);
             }
         }, 150);
+
+        // Salir de pantalla completa nativa en el navegador si está activa
+        const isBrowserFullscreen = !!(
+            document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.mozFullScreenElement ||
+            document.msFullscreenElement
+        );
+        if (isBrowserFullscreen) {
+            exitBrowserFullscreen();
+        }
     }
 }
 
