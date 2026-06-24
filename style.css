@@ -376,14 +376,11 @@ body {
 }
 
 /* Estilos para múltiples reproductores (Slots) */
+/* Estilos para múltiples reproductores (Slots) */
 .player-slot {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
     background: #000;
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
 }
 
 .player-slot video, .player-slot iframe {
@@ -411,19 +408,50 @@ body {
     overflow: hidden !important;
 }
 
-.player-wrapper.split-mode #player-slot-1 {
-    position: relative !important;
-    left: auto !important;
-    width: 50%;
-    height: 100% !important;
-    border-right: none !important;
+/* ── ROLES VISUALES DINÁMICOS DE SLOTS ── */
+.player-slot.slot-role-hidden {
+    display: none !important;
 }
 
-.player-wrapper.split-mode #player-slot-2 {
+.player-slot.slot-role-single {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    z-index: 1 !important;
+}
+
+.player-slot.slot-role-left {
     position: relative !important;
     left: auto !important;
-    flex: 1 !important;
+    top: auto !important;
     height: 100% !important;
+    display: block !important;
+    order: 1 !important;
+    z-index: 2 !important;
+}
+
+.player-slot.slot-role-right {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    height: 100% !important;
+    display: block !important;
+    order: 3 !important;
+    z-index: 2 !important;
+}
+
+.player-slot.slot-role-pip {
+    width: var(--pip-width, 384px) !important;
+    height: var(--pip-height, 216px) !important;
+    position: absolute !important;
+    z-index: 50 !important;
+    border-radius: 12px !important;
+    border: 2px solid var(--border-light) !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8) !important;
+    overflow: hidden !important;
     display: block !important;
 }
 
@@ -440,6 +468,7 @@ body {
     justify-content: center;
     position: relative;
     z-index: 10;
+    order: 2 !important;
     transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
@@ -480,48 +509,51 @@ body {
     z-index: 4;
 }
 
-/* Slot PiP Flotante */
-.pip-slot {
-    width: var(--pip-width, 384px) !important;
-    height: var(--pip-height, 216px) !important;
-    position: absolute !important;
-    z-index: 50 !important;
-    border-radius: 12px;
-    border: 2px solid var(--border-light);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-    overflow: hidden;
-    background: #000;
+/* Ocultar controles específicos de PiP en cualquier slot si no tiene el rol de PiP activo */
+.player-slot:not(.slot-role-pip) .slot-resize-btn,
+.player-slot:not(.slot-role-pip) .slot-drag-btn,
+.player-slot:not(.slot-role-pip) .slot-position-btn,
+.player-slot:not(.slot-role-pip) .pip-overlay-controls {
+    display: none !important;
+}
+
+/* Mostrarlos solo si el slot tiene el rol de PiP activo */
+.player-slot.slot-role-pip .slot-resize-btn,
+.player-slot.slot-role-pip .slot-drag-btn,
+.player-slot.slot-role-pip .slot-position-btn,
+.player-slot.slot-role-pip .pip-overlay-controls {
+    display: flex !important;
 }
 
 /* Enfocado por D-pad */
-.pip-slot:focus, .pip-slot.focused {
+.player-slot.slot-role-pip:focus, .player-slot.slot-role-pip.focused {
     border-color: var(--primary) !important;
     box-shadow: 0 0 15px var(--primary-glow) !important;
 }
 
-/* Clases de las 4 esquinas */
-.pip-bottom-right {
+/* Clases de las 4 esquinas para el rol PiP */
+.player-slot.slot-role-pip.pip-bottom-right {
     bottom: 20px;
     right: 20px;
     top: auto !important;
     left: auto !important;
 }
 
-.pip-bottom-left {
+.player-slot.slot-role-pip.pip-bottom-left {
     bottom: 20px;
     left: 20px;
     top: auto !important;
     right: auto !important;
 }
 
-.pip-top-right {
+.player-slot.slot-role-pip.pip-top-right {
     top: 20px;
     right: 20px;
     bottom: auto !important;
     left: auto !important;
 }
 
-.pip-top-left {
+.player-slot.slot-role-pip.pip-top-left {
     top: 20px;
     left: 20px;
     bottom: auto !important;

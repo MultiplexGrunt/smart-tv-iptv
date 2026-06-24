@@ -160,7 +160,7 @@ function setupEventListeners() {
             pipSlot.style.right = "auto";
 
             // Eliminar las clases de esquina fijas
-            pipSlot.className = "player-slot pip-slot focusable";
+            pipSlot.className = "player-slot slot-role-pip focusable";
 
             isDraggingPip = true;
 
@@ -1152,188 +1152,70 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
 
 // Reproducción principal (Slot 1)
 function playStream(url, title, group = "Live Event", forceIframe = false) {
-    // Si estaba activa la pantalla partida, la removemos
-    if (appState.splitMode) {
-        disableSplitScreen();
-    }
-
+    console.log("[Seamless] playStream:", title);
     appState.currentPlayingUrl = url;
-    dom.playingTitle.textContent = title;
-    dom.playingGroup.textContent = group;
-    dom.playingGroup.style.color = "var(--text-muted)";
-    dom.playerLoader.style.display = "none"; // El loader se maneja de forma abstracta
 
-    // Sincronizar botón activo principal en el DOM
-    const container = dom.eventsList;
-    if (container) {
-        container.querySelectorAll(".event-stream-btn.active-play").forEach(btn => {
-            btn.classList.remove("active-play");
-        });
-        const btn1 = container.querySelector(`.event-stream-btn[data-page-url="${encodeURIComponent(url)}"]`);
-        if (btn1) {
-            appState.activeBtn = btn1;
-            btn1.classList.add("active-play");
-        } else {
-            appState.activeBtn = null;
-        }
-    }
+    // Al reproducir un canal normal, limpiamos el slot 2 y PiP
+    appState.slotsData["2"] = null;
+    appState.slotsData["pip"] = null;
+    appState.splitMode = false;
+    appState.pipMode = false;
 
-    // Reproducir en slot 1 principal
+    stopSlotPlayer("2");
+    stopSlotPlayer("pip");
+
     playStreamInSlot("1", url, title, group, forceIframe, false);
+
+    syncActiveButtonsInMenu();
+    updateSlotsLayout();
 }
 
 // Detener por completo la reproducción en el Slot 1 (Principal)
 function stopMainPlayer() {
-    console.log("Deteniendo reproductor principal...");
-
-    // Si estaba activa la pantalla partida, la removemos
-    if (appState.splitMode) {
-        disableSplitScreen();
-    }
-
-    // Si estaba activo el PiP, lo removemos
-    if (appState.pipMode) {
-        disablePipScreen();
-    }
+    console.log("[Seamless] Deteniendo reproductor completo...");
 
     appState.currentPlayingUrl = "";
+    appState.slotsData["1"] = null;
+    appState.slotsData["2"] = null;
+    appState.slotsData["pip"] = null;
+    appState.splitMode = false;
+    appState.pipMode = false;
+
+    stopSlotPlayer("1");
+    stopSlotPlayer("2");
+    stopSlotPlayer("pip");
+
     dom.playingTitle.textContent = "Ningún evento seleccionado";
     dom.playingGroup.textContent = "Elige una transmisión de la parte superior para comenzar";
     dom.playingGroup.style.color = "var(--text-muted)";
     dom.playerLoader.style.display = "none";
 
-    const videoEl1 = document.getElementById("tv-video-player-1");
-    const iframeEl1 = document.getElementById("tv-iframe-player-1");
-
-    if (videoEl1) {
-        videoEl1.pause();
-        videoEl1.src = "";
-        videoEl1.removeAttribute("src");
-        try {
-            videoEl1.load();
-        } catch (e) { }
-    }
-    if (iframeEl1) {
-        iframeEl1.src = "about:blank";
-        iframeEl1.removeAttribute("srcdoc");
-    }
-
-    if (appState.hlsPlayer1) {
-        appState.hlsPlayer1.destroy();
-        appState.hlsPlayer1 = null;
-    }
-
-    // Limpiar datos de reproducción de la ranura 1
-    if (appState.slotsData) {
-        appState.slotsData["1"] = null;
-    }
-
-    // Remover marcas de canal activo en las listas
-    const container = dom.eventsList;
-    if (container) {
-        container.querySelectorAll(".event-stream-btn.active-play").forEach(btn => {
-            btn.classList.remove("active-play");
-        });
-    }
-    appState.activeBtn = null;
-    updateFullscreenButtonVisibility();
+    syncActiveButtonsInMenu();
+    updateSlotsLayout();
 }
 
 // Activar Pantalla Partida (Multi-View)
 function enableSplitScreen(url, title, group, forceIframe) {
-    console.log("Activando Pantalla Partida...");
+    console.log("[Seamless] Activando Split Screen para:", title);
 
     appState.splitMode = true;
-    dom.playerWrapper.classList.add("split-mode");
-    if (dom.appContainer) {
-        dom.appContainer.classList.add("split-mode-active");
-    }
 
-    const slot1 = document.getElementById("player-slot-1");
-    if (slot1) {
-        slot1.style.width = "50%";
-    }
-
-    if (dom.splitResizer) {
-        dom.splitResizer.style.display = "flex";
-    }
-
-    // Sincronizar botón split activo en el DOM
-    const container = dom.eventsList;
-    if (container) {
-        container.querySelectorAll(".btn-action-split.active-play").forEach(btn => {
-            btn.classList.remove("active-play");
-        });
-        const btnSplit = container.querySelector(`.btn-action-split[data-page-url="${encodeURIComponent(url)}"]`);
-        if (btnSplit) {
-            btnSplit.classList.add("active-play");
-        }
-    }
-
-    // Reproducir en Slot 2. Lo cargamos silenciado para asegurar el autoplay sin bloqueos.
+    // Reproducir en Slot 2 físico silenciado
     playStreamInSlot("2", url, title, group, forceIframe, true);
 
-    // Concatenar títulos en el overlay
-    dom.playingTitle.textContent = `${dom.playingTitle.textContent.split(" | ")[0]} | ${title}`;
-
-    updateFullscreenButtonVisibility();
-    rebuildSpatialIndexes();
+    syncActiveButtonsInMenu();
+    updateSlotsLayout();
 }
 
 // Desactivar Pantalla Partida
 function disableSplitScreen() {
     if (!appState.splitMode) return;
 
+    console.log("[Seamless] Desactivando Split Screen");
     appState.splitMode = false;
-    dom.playerWrapper.classList.remove("split-mode");
-    if (dom.appContainer) {
-        dom.appContainer.classList.remove("split-mode-active");
-    }
 
-    const slot1 = document.getElementById("player-slot-1");
-    if (slot1) {
-        slot1.style.width = "";
-    }
-
-    if (dom.splitResizer) {
-        dom.splitResizer.style.display = "none";
-    }
-
-    const slotEl2 = document.getElementById("player-slot-2");
-    if (slotEl2) {
-        slotEl2.style.display = "none";
-    }
-
-    const videoEl2 = document.getElementById("tv-video-player-2");
-    const iframeEl2 = document.getElementById("tv-iframe-player-2");
-
-    if (videoEl2) {
-        videoEl2.pause();
-        videoEl2.src = "";
-        videoEl2.removeAttribute("src");
-    }
-    if (iframeEl2) {
-        iframeEl2.src = "about:blank";
-        iframeEl2.removeAttribute("srcdoc");
-    }
-
-    if (appState.hlsPlayer2) {
-        appState.hlsPlayer2.destroy();
-        appState.hlsPlayer2 = null;
-    }
-
-    // Limpiar datos de reproducción del slot 2
-    if (appState.slotsData) {
-        appState.slotsData["2"] = null;
-    }
-
-    // Sincronizar y remover marcas de botón split en el DOM
-    const container = dom.eventsList;
-    if (container) {
-        container.querySelectorAll(".btn-action-split.active-play").forEach(btn => {
-            btn.classList.remove("active-play");
-        });
-    }
+    stopSlotPlayer("2");
+    appState.slotsData["2"] = null;
 
     // Restablecer audio dividido
     if (appState.audioSplit) {
@@ -1349,52 +1231,21 @@ function disableSplitScreen() {
         }
     }
 
-    // Actualizar el título principal removiendo la segunda pantalla
-    if (dom.playingTitle.textContent.includes(" | ")) {
-        dom.playingTitle.textContent = dom.playingTitle.textContent.split(" | ")[0];
-    }
-
-    updateFullscreenButtonVisibility();
-    rebuildSpatialIndexes();
+    syncActiveButtonsInMenu();
+    updateSlotsLayout();
 }
 
 // Activar PiP flotante
 function enablePipScreen(url, title, group, forceIframe) {
-    console.log("Activando reproductor PiP flotante...");
+    console.log("[Seamless] Activando PiP flotante para:", title);
 
     appState.pipMode = true;
-    const pipSlot = dom.playerSlotPip;
-    if (pipSlot) {
-        pipSlot.style.display = "block";
-        // Limpiar coordenadas inline previas de arrastre
-        pipSlot.style.left = "";
-        pipSlot.style.top = "";
-        pipSlot.style.bottom = "";
-        pipSlot.style.right = "";
-        pipSlot.className = `player-slot pip-slot ${appState.pipCorner} focusable`;
-        
-        // Asegurar que se aplique el tamaño configurado en appState
-        applyPipSize();
-        
-        rebuildSpatialIndexes();
-    }
 
-    // Sincronizar botón PiP activo en el DOM
-    const container = dom.eventsList;
-    if (container) {
-        container.querySelectorAll(".btn-action-pip.active-play").forEach(btn => {
-            btn.classList.remove("active-play");
-        });
-        const btnPip = container.querySelector(`.btn-action-pip[data-page-url="${encodeURIComponent(url)}"]`);
-        if (btnPip) {
-            btnPip.classList.add("active-play");
-        }
-    }
-
-    // Reproducir en slot PiP en silencio
+    // Reproducir en slot PiP físico en silencio
     playStreamInSlot("pip", url, title, group, forceIframe, true);
 
-    updateFullscreenButtonVisibility();
+    syncActiveButtonsInMenu();
+    updateSlotsLayout();
 }
 
 // Rotar esquina del PiP
@@ -1411,7 +1262,7 @@ function cyclePipCorner() {
         pipSlot.style.top = "";
         pipSlot.style.bottom = "";
         pipSlot.style.right = "";
-        pipSlot.className = `player-slot pip-slot ${appState.pipCorner} focusable`;
+        pipSlot.className = `player-slot slot-role-pip ${appState.pipCorner} focusable`;
 
         // Mantener clase de foco espacial si está enfocado
         if (activeFocusedElement === pipSlot) {
@@ -1480,118 +1331,292 @@ function applyPipSize() {
     }
 }
 
+
+
 // Desactivar PiP flotante
 function disablePipScreen() {
     if (!appState.pipMode) return;
 
+    console.log("[Seamless] Desactivando PiP flotante");
     appState.pipMode = false;
-    const pipSlot = dom.playerSlotPip;
-    if (pipSlot) {
-        pipSlot.style.display = "none";
+
+    stopSlotPlayer("pip");
+    appState.slotsData["pip"] = null;
+
+    syncActiveButtonsInMenu();
+    updateSlotsLayout();
+}
+
+// ── MANEJADORES DE CIERRE INTELIGENTE (REORGANIZACIÓN DINÁMICA DE SLOTS) ──
+function handleCloseSlot1() {
+    console.log("[Smart Close - Seamless] Cerrando Slot 1...");
+    
+    if (appState.slotsData["2"] && appState.slotsData["pip"]) {
+        // Caso 3 pantallas: Cierra 1.
+        stopSlotPlayer("1");
+        appState.slotsData["1"] = null;
+        appState.pipMode = false;
+    }
+    else if (appState.slotsData["2"]) {
+        // Caso 2 pantallas (Slot 1 y Slot 2). Cierra 1.
+        stopSlotPlayer("1");
+        appState.slotsData["1"] = null;
+        appState.splitMode = false;
+    }
+    else if (appState.slotsData["pip"]) {
+        // Caso 2 pantallas (Slot 1 y PiP). Cierra 1.
+        stopSlotPlayer("1");
+        appState.slotsData["1"] = null;
+        appState.pipMode = false;
+    }
+    else {
+        // Caso 1 pantalla activa.
+        stopMainPlayer();
+        return;
     }
 
-    const videoElPip = document.getElementById("tv-video-player-pip");
-    const iframeElPip = document.getElementById("tv-iframe-player-pip");
+    syncActiveButtonsInMenu();
+    updateSlotsLayout();
+}
 
-    if (videoElPip) {
-        videoElPip.pause();
-        videoElPip.src = "";
-        videoElPip.removeAttribute("src");
+function handleCloseSlot2() {
+    console.log("[Smart Close - Seamless] Cerrando Slot 2...");
+    
+    if (appState.slotsData["1"] && appState.slotsData["pip"]) {
+        // Caso 3 pantallas: Cierra 2.
+        stopSlotPlayer("2");
+        appState.slotsData["2"] = null;
+        appState.pipMode = false;
     }
-    if (iframeElPip) {
-        iframeElPip.src = "about:blank";
-        iframeElPip.removeAttribute("srcdoc");
-    }
-
-    if (appState.hlsPlayerPip) {
-        appState.hlsPlayerPip.destroy();
-        appState.hlsPlayerPip = null;
-    }
-
-    // Limpiar datos de reproducción del slot pip
-    if (appState.slotsData) {
-        appState.slotsData["pip"] = null;
+    else {
+        // Caso 2 pantallas (Slot 1 y Slot 2). Cierra 2.
+        stopSlotPlayer("2");
+        appState.slotsData["2"] = null;
+        appState.splitMode = false;
     }
 
-    // Sincronizar y remover marcas de botón PiP en el DOM
-    const container = dom.eventsList;
-    if (container) {
-        container.querySelectorAll(".btn-action-pip.active-play").forEach(btn => {
-            btn.classList.remove("active-play");
-        });
+    syncActiveButtonsInMenu();
+    updateSlotsLayout();
+}
+
+function handleCloseSlotPip() {
+    console.log("[Smart Close - Seamless] Cerrando Slot PiP...");
+    stopSlotPlayer("pip");
+    appState.slotsData["pip"] = null;
+    appState.pipMode = false;
+
+    syncActiveButtonsInMenu();
+    updateSlotsLayout();
+}
+
+// ── UTILERÍAS DE ROLES VISUALES DINÁMICOS DE SLOTS (SEAMLESS REORDERING) ──
+function stopSlotPlayer(slotId) {
+    console.log(`[Seamless] Limpiando reproductor físico del slot: ${slotId}`);
+    const videoEl = document.getElementById(`tv-video-player-${slotId}`);
+    const iframeEl = document.getElementById(`tv-iframe-player-${slotId}`);
+
+    if (videoEl) {
+        videoEl.pause();
+        videoEl.src = "";
+        videoEl.removeAttribute("src");
+        try {
+            videoEl.load();
+        } catch (e) {}
+    }
+    if (iframeEl) {
+        iframeEl.src = "about:blank";
+        iframeEl.removeAttribute("srcdoc");
+    }
+
+    const hlsKey = `hlsPlayer${slotId}`;
+    if (appState[hlsKey]) {
+        appState[hlsKey].destroy();
+        appState[hlsKey] = null;
+    }
+}
+
+function applySplitWidths() {
+    const wrapper = dom.playerWrapper;
+    if (!wrapper) return;
+
+    const leftWidth = wrapper.dataset.splitWidthLeft || "50%";
+    const leftPercent = parseFloat(leftWidth);
+    const rightWidth = (100 - leftPercent) + "%";
+
+    const leftSlot = wrapper.querySelector(".slot-role-left");
+    const rightSlot = wrapper.querySelector(".slot-role-right");
+
+    if (leftSlot) {
+        leftSlot.style.width = leftWidth;
+    }
+    if (rightSlot) {
+        rightSlot.style.width = rightWidth;
+    }
+}
+
+function updateSlotsLayout() {
+    const s1 = appState.slotsData["1"];
+    const s2 = appState.slotsData["2"];
+    const sp = appState.slotsData["pip"];
+
+    const slot1El = document.getElementById("player-slot-1");
+    const slot2El = document.getElementById("player-slot-2");
+    const slotPipEl = document.getElementById("player-slot-pip");
+    const resizerEl = dom.splitResizer;
+    const wrapperEl = dom.playerWrapper;
+
+    if (!slot1El || !slot2El || !slotPipEl) return;
+
+    console.log("[Seamless] Actualizando roles CSS de slots:", { s1: !!s1, s2: !!s2, sp: !!sp });
+
+    // Limpiar clases de rol previas
+    const rolesClasses = ["slot-role-single", "slot-role-left", "slot-role-right", "slot-role-pip", "slot-role-hidden"];
+    [slot1El, slot2El, slotPipEl].forEach(el => {
+        rolesClasses.forEach(cls => el.classList.remove(cls));
+        el.style.width = ""; // Reset de anchos en línea
+    });
+
+    // Caso 1: Los 3 slots tienen datos activos
+    if (s1 && s2 && sp) {
+        slot1El.classList.add("slot-role-left");
+        slot2El.classList.add("slot-role-right");
+        slotPipEl.classList.add("slot-role-pip");
+        if (wrapperEl) wrapperEl.classList.add("split-mode");
+        if (resizerEl) resizerEl.style.display = "flex";
+        
+        applySplitWidths();
+    }
+    // Caso 2: Solo Slot 1 y Slot 2 activos
+    else if (s1 && s2) {
+        slot1El.classList.add("slot-role-left");
+        slot2El.classList.add("slot-role-right");
+        slotPipEl.classList.add("slot-role-hidden");
+        if (wrapperEl) wrapperEl.classList.add("split-mode");
+        if (resizerEl) resizerEl.style.display = "flex";
+        
+        applySplitWidths();
+    }
+    // Caso 3: Solo Slot 1 y PiP activos (se verán en split-screen)
+    else if (s1 && sp) {
+        slot1El.classList.add("slot-role-left");
+        slot2El.classList.add("slot-role-hidden");
+        slotPipEl.classList.add("slot-role-right");
+        if (wrapperEl) wrapperEl.classList.add("split-mode");
+        if (resizerEl) resizerEl.style.display = "flex";
+        
+        applySplitWidths();
+    }
+    // Caso 4: Solo Slot 2 y PiP activos (se verán en split-screen - tras cerrar 1)
+    else if (s2 && sp) {
+        slot1El.classList.add("slot-role-hidden");
+        slot2El.classList.add("slot-role-left");
+        slotPipEl.classList.add("slot-role-right");
+        if (wrapperEl) wrapperEl.classList.add("split-mode");
+        if (resizerEl) resizerEl.style.display = "flex";
+        
+        applySplitWidths();
+    }
+    // Caso 5: Solo Slot 1 activo
+    else if (s1) {
+        slot1El.classList.add("slot-role-single");
+        slot2El.classList.add("slot-role-hidden");
+        slotPipEl.classList.add("slot-role-hidden");
+        if (wrapperEl) wrapperEl.classList.remove("split-mode");
+        if (resizerEl) resizerEl.style.display = "none";
+    }
+    // Caso 6: Solo Slot 2 activo
+    else if (s2) {
+        slot1El.classList.add("slot-role-hidden");
+        slot2El.classList.add("slot-role-single");
+        slotPipEl.classList.add("slot-role-hidden");
+        if (wrapperEl) wrapperEl.classList.remove("split-mode");
+        if (resizerEl) resizerEl.style.display = "none";
+    }
+    // Caso 7: Solo PiP activo
+    else if (sp) {
+        slot1El.classList.add("slot-role-hidden");
+        slot2El.classList.add("slot-role-hidden");
+        slotPipEl.classList.add("slot-role-single");
+        if (wrapperEl) wrapperEl.classList.remove("split-mode");
+        if (resizerEl) resizerEl.style.display = "none";
+    }
+    // Caso 8: Ninguno activo
+    else {
+        slot1El.classList.add("slot-role-hidden");
+        slot2El.classList.add("slot-role-hidden");
+        slotPipEl.classList.add("slot-role-hidden");
+        if (wrapperEl) wrapperEl.classList.remove("split-mode");
+        if (resizerEl) resizerEl.style.display = "none";
+    }
+
+    // Aplicar dimensiones de PiP si corresponde
+    if (slotPipEl.classList.contains("slot-role-pip")) {
+        applyPipSize();
+    } else {
+        slotPipEl.style.removeProperty("--pip-width");
+        slotPipEl.style.removeProperty("--pip-height");
+    }
+
+    // Actualizar el título principal y categoría basados en las pantallas activas
+    let titles = [];
+    if (s1) titles.push(s1.title);
+    if (s2) titles.push(s2.title);
+    if (sp) {
+        if (!slotPipEl.classList.contains("slot-role-pip")) {
+            titles.push(sp.title);
+        }
+    }
+    
+    if (titles.length > 0) {
+        dom.playingTitle.textContent = titles.join(" | ");
+        const mainSlot = s1 || s2 || sp;
+        if (mainSlot) {
+            dom.playingGroup.textContent = mainSlot.group;
+        }
+    } else {
+        dom.playingTitle.textContent = "Ningún evento seleccionado";
+        dom.playingGroup.textContent = "Elige una transmisión de la parte superior para comenzar";
     }
 
     updateFullscreenButtonVisibility();
     rebuildSpatialIndexes();
 }
 
-// ── MANEJADORES DE CIERRE INTELIGENTE (REORGANIZACIÓN DINÁMICA DE SLOTS) ──
-function handleCloseSlot1() {
-    console.log("[Smart Close] Cerrando Slot 1...");
-    if (appState.splitMode && appState.pipMode) {
-        // Caso 3 pantallas: Cierra 1. Promueve 2 -> 1 y Pip -> 2. Desactiva Pip.
-        const data2 = appState.slotsData["2"];
-        const dataPip = appState.slotsData["pip"];
+function syncActiveButtonsInMenu() {
+    const container = dom.eventsList;
+    if (!container) return;
 
-        if (data2 && dataPip) {
-            // Promover 2 a 1
-            playStream(data2.url, data2.title, data2.group, data2.forceIframe);
-            // Promover PiP a 2
-            enableSplitScreen(dataPip.url, dataPip.title, dataPip.group, dataPip.forceIframe);
-            // Cerrar PiP
-            disablePipScreen();
-        } else if (data2) {
-            // Fallback si no hay datos de PiP: Promover 2 a 1 y desactivar PiP
-            playStream(data2.url, data2.title, data2.group, data2.forceIframe);
-            disablePipScreen();
+    const url1 = appState.slotsData["1"] ? appState.slotsData["1"].url : appState.currentPlayingUrl;
+    const url2 = appState.slotsData["2"] ? appState.slotsData["2"].url : null;
+    const urlPip = appState.slotsData["pip"] ? appState.slotsData["pip"].url : null;
+
+    container.querySelectorAll(".event-stream-btn").forEach(btn => {
+        const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
+        if (url1 && pageUrl === url1) {
+            btn.classList.add("active-play");
+            appState.activeBtn = btn;
         } else {
-            // Fallback total
-            stopMainPlayer();
+            btn.classList.remove("active-play");
         }
-    }
-    else if (appState.splitMode) {
-        // Caso 2 pantallas: Cierra 1. Promueve 2 -> 1. Desactiva Split.
-        const data2 = appState.slotsData["2"];
+    });
 
-        if (data2) {
-            // Promover 2 a 1 (esto internamente limpia y deshabilita el slot 2)
-            playStream(data2.url, data2.title, data2.group, data2.forceIframe);
+    container.querySelectorAll(".btn-action-split").forEach(btn => {
+        const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
+        if (url2 && pageUrl === url2) {
+            btn.classList.add("active-play");
         } else {
-            stopMainPlayer();
+            btn.classList.remove("active-play");
         }
-    }
-    else {
-        // Caso 1 pantalla: Cierra 1. Apaga todo.
-        stopMainPlayer();
-    }
-}
+    });
 
-function handleCloseSlot2() {
-    console.log("[Smart Close] Cerrando Slot 2...");
-    if (appState.splitMode && appState.pipMode) {
-        // Caso 3 pantallas: Cierra 2. Promueve Pip -> 2. Desactiva Pip.
-        const dataPip = appState.slotsData["pip"];
-
-        if (dataPip) {
-            // Desactivar slot 2 anterior
-            disableSplitScreen();
-            // Habilitar split con datos del PiP
-            enableSplitScreen(dataPip.url, dataPip.title, dataPip.group, dataPip.forceIframe);
-            // Cerrar PiP
-            disablePipScreen();
+    container.querySelectorAll(".btn-action-pip").forEach(btn => {
+        const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
+        if (urlPip && pageUrl === urlPip) {
+            btn.classList.add("active-play");
         } else {
-            disableSplitScreen();
+            btn.classList.remove("active-play");
         }
-    }
-    else {
-        // Caso 2 pantallas: Cierra 2. Desactiva Split.
-        disableSplitScreen();
-    }
-}
-
-function handleCloseSlotPip() {
-    console.log("[Smart Close] Cerrando Slot PiP...");
-    disablePipScreen();
+    });
 }
 
 // Funciones helper para alternar pantalla completa nativa del navegador
@@ -1715,9 +1740,9 @@ function handleKeyDown(e) {
     if (activeFocusedElement === dom.splitResizer) {
         if (key === "ArrowLeft" || key === "ArrowRight") {
             e.preventDefault();
-            const slot1 = document.getElementById("player-slot-1");
-            if (slot1) {
-                let currentWidth = parseFloat(slot1.style.width) || 50;
+            const wrapper = dom.playerWrapper;
+            if (wrapper) {
+                let currentWidth = parseFloat(wrapper.dataset.splitWidthLeft) || 50;
                 const step = 3; // Modificar en pasos de 3%
                 if (key === "ArrowLeft") {
                     currentWidth -= step;
@@ -1726,7 +1751,8 @@ function handleKeyDown(e) {
                 }
                 if (currentWidth < 20) currentWidth = 20;
                 if (currentWidth > 80) currentWidth = 80;
-                slot1.style.width = `${currentWidth}%`;
+                wrapper.dataset.splitWidthLeft = `${currentWidth}%`;
+                applySplitWidths();
             }
             return;
         }
@@ -2029,10 +2055,9 @@ let isDraggingResizer = false;
 function setupSplitResizerEvents() {
     const resizer = dom.splitResizer;
     const wrapper = dom.playerWrapper;
-    const slot1 = document.getElementById("player-slot-1");
     const overlay = document.getElementById("iframe-drag-overlay");
 
-    if (!resizer || !wrapper || !slot1) return;
+    if (!resizer || !wrapper) return;
 
     const startDrag = (e) => {
         e.preventDefault();
@@ -2061,7 +2086,8 @@ function setupSplitResizerEvents() {
         if (percentage < 20) percentage = 20;
         if (percentage > 80) percentage = 80;
 
-        slot1.style.width = `${percentage}%`;
+        wrapper.dataset.splitWidthLeft = `${percentage}%`;
+        applySplitWidths();
     };
 
     const stopDrag = () => {
