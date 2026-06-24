@@ -37,6 +37,7 @@ const dom = {
     playerSection: document.getElementById("tv-player-section"),
     playerWrapper: document.getElementById("player-wrapper"),
     playerSlotPip: document.getElementById("player-slot-pip"),
+    pipControlHeader: document.getElementById("pip-control-header"),
     playingTitle: document.getElementById("playing-channel-title"),
     playingGroup: document.getElementById("playing-channel-group"),
     playerLoader: document.getElementById("player-loader"),
@@ -123,7 +124,7 @@ function setupEventListeners() {
             cyclePipCorner();
         });
     }
-    if (dom.btnDragSlotPip) {
+    if (dom.pipControlHeader) {
         let isDraggingPip = false;
         let startX = 0;
         let startY = 0;
@@ -131,6 +132,11 @@ function setupEventListeners() {
         let startTop = 0;
 
         const onDragStart = (e) => {
+            // Si el clic/toque fue en un botón interactivo dentro del header, NO iniciar arrastre del PiP
+            if (e.target.tagName.toLowerCase() === "button" || e.target.closest("button")) {
+                return;
+            }
+
             // Evitar comportamiento por defecto del navegador (selección de texto, etc.)
             e.preventDefault();
             e.stopPropagation();
@@ -138,6 +144,7 @@ function setupEventListeners() {
             // Bloquear selección de texto a nivel body
             document.body.style.userSelect = "none";
             document.body.style.webkitUserSelect = "none";
+            document.body.classList.add("is-dragging-pip");
 
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -221,6 +228,7 @@ function setupEventListeners() {
             // Restablecer selección de texto
             document.body.style.userSelect = "";
             document.body.style.webkitUserSelect = "";
+            document.body.classList.remove("is-dragging-pip");
 
             const overlay = document.getElementById("iframe-drag-overlay");
             if (overlay) {
@@ -235,12 +243,14 @@ function setupEventListeners() {
             }
         };
 
-        dom.btnDragSlotPip.addEventListener("mousedown", onDragStart);
-        dom.btnDragSlotPip.addEventListener("touchstart", onDragStart, { passive: false });
+        dom.pipControlHeader.addEventListener("mousedown", onDragStart);
+        dom.pipControlHeader.addEventListener("touchstart", onDragStart, { passive: false });
 
-        dom.btnDragSlotPip.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        dom.pipControlHeader.addEventListener("click", (e) => {
+            if (e.target.tagName.toLowerCase() !== "button" && !e.target.closest("button")) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
         });
     }
     if (dom.btnResizeSlotPip) {
