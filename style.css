@@ -482,8 +482,8 @@ body {
 
 /* Slot PiP Flotante */
 .pip-slot {
-    width: 280px !important;
-    height: 160px !important;
+    width: 384px !important;
+    height: 216px !important;
     position: absolute !important;
     z-index: 50 !important;
     border-radius: 12px;

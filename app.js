@@ -19,7 +19,7 @@ let appState = {
     activeBtn: null,            // Botón de stream seleccionado actualmente
     splitMode: false,
     pipMode: false,
-    pipCorner: "pip-top-right",
+    pipCorner: "pip-top-left",
     scores: [],                  // Almacén de marcadores deportivos en tiempo real
     audioSplit: false           // Estado de audio dividido
 };
@@ -110,9 +110,119 @@ function setupEventListeners() {
         });
     }
     if (dom.positionBtnPip) {
-        dom.positionBtnPip.addEventListener("click", (e) => {
+        let isDraggingPip = false;
+        let startX = 0;
+        let startY = 0;
+        let startLeft = 0;
+        let startTop = 0;
+        let hasDragged = false;
+        let dragStartTime = 0;
+
+        const onDragStart = (e) => {
+            e.preventDefault();
             e.stopPropagation();
-            cyclePipCorner();
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            startX = clientX;
+            startY = clientY;
+            dragStartTime = Date.now();
+            hasDragged = false;
+
+            const pipSlot = dom.playerSlotPip;
+            if (!pipSlot) return;
+
+            const rect = pipSlot.getBoundingClientRect();
+            startLeft = rect.left;
+            startTop = rect.top;
+
+            isDraggingPip = true;
+
+            const overlay = document.getElementById("iframe-drag-overlay");
+            if (overlay) {
+                overlay.style.display = "block";
+                overlay.style.cursor = "move";
+            }
+
+            document.addEventListener("mousemove", onDragMove, { passive: false });
+            document.addEventListener("touchmove", onDragMove, { passive: false });
+            document.addEventListener("mouseup", onDragEnd);
+            document.addEventListener("touchend", onDragEnd);
+        };
+
+        const onDragMove = (e) => {
+            if (!isDraggingPip) return;
+            e.preventDefault();
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                hasDragged = true;
+            }
+
+            if (hasDragged) {
+                const pipSlot = dom.playerSlotPip;
+                if (pipSlot) {
+                    pipSlot.className = "player-slot pip-slot focusable";
+                    pipSlot.style.bottom = "auto";
+                    pipSlot.style.right = "auto";
+
+                    let newLeft = startLeft + dx;
+                    let newTop = startTop + dy;
+
+                    const maxLeft = window.innerWidth - pipSlot.offsetWidth;
+                    const maxTop = window.innerHeight - pipSlot.offsetHeight;
+
+                    if (newLeft < 0) newLeft = 0;
+                    if (newLeft > maxLeft) newLeft = maxLeft;
+                    if (newTop < 0) newTop = 0;
+                    if (newTop > maxTop) newTop = maxTop;
+
+                    pipSlot.style.left = `${newLeft}px`;
+                    pipSlot.style.top = `${newTop}px`;
+                }
+            }
+        };
+
+        const onDragEnd = (e) => {
+            if (!isDraggingPip) return;
+            isDraggingPip = false;
+
+            document.removeEventListener("mousemove", onDragMove);
+            document.removeEventListener("touchmove", onDragMove);
+            document.removeEventListener("mouseup", onDragEnd);
+            document.removeEventListener("touchend", onDragEnd);
+
+            const overlay = document.getElementById("iframe-drag-overlay");
+            if (overlay) {
+                overlay.style.display = "none";
+                overlay.style.cursor = "";
+            }
+
+            const duration = Date.now() - dragStartTime;
+
+            if (!hasDragged || duration < 200) {
+                cyclePipCorner();
+            } else {
+                rebuildSpatialIndexes();
+                const pipSlot = dom.playerSlotPip;
+                if (pipSlot && activeFocusedElement === pipSlot) {
+                    pipSlot.classList.add("focused");
+                }
+            }
+        };
+
+        dom.positionBtnPip.addEventListener("mousedown", onDragStart);
+        dom.positionBtnPip.addEventListener("touchstart", onDragStart, { passive: false });
+
+        dom.positionBtnPip.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
         });
     }
     if (dom.btnFullscreenToggle) {
@@ -1220,6 +1330,11 @@ function enablePipScreen(url, title, group, forceIframe) {
     const pipSlot = dom.playerSlotPip;
     if (pipSlot) {
         pipSlot.style.display = "block";
+        // Limpiar coordenadas inline previas de arrastre
+        pipSlot.style.left = "";
+        pipSlot.style.top = "";
+        pipSlot.style.bottom = "";
+        pipSlot.style.right = "";
         pipSlot.className = `player-slot pip-slot ${appState.pipCorner} focusable`;
         rebuildSpatialIndexes();
     }
@@ -1239,6 +1354,11 @@ function cyclePipCorner() {
     appState.pipCorner = corners[nextIndex];
     const pipSlot = dom.playerSlotPip;
     if (pipSlot) {
+        // Limpiar coordenadas inline previas de arrastre
+        pipSlot.style.left = "";
+        pipSlot.style.top = "";
+        pipSlot.style.bottom = "";
+        pipSlot.style.right = "";
         pipSlot.className = `player-slot pip-slot ${appState.pipCorner} focusable`;
 
         // Mantener clase de foco espacial si está enfocado
