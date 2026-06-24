@@ -42,6 +42,7 @@ const dom = {
     btnFullscreenToggle: document.getElementById("btn-fullscreen-toggle"),
     btnAudioSplit: document.getElementById("btn-audio-split"),
     positionBtnPip: document.getElementById("btn-position-slot-pip"),
+    btnDragSlotPip: document.getElementById("btn-drag-slot-pip"),
     splitResizer: document.getElementById("split-resizer")
 };
 
@@ -110,32 +111,49 @@ function setupEventListeners() {
         });
     }
     if (dom.positionBtnPip) {
+        dom.positionBtnPip.addEventListener("click", (e) => {
+            e.stopPropagation();
+            cyclePipCorner();
+        });
+    }
+    if (dom.btnDragSlotPip) {
         let isDraggingPip = false;
         let startX = 0;
         let startY = 0;
         let startLeft = 0;
         let startTop = 0;
-        let hasDragged = false;
-        let dragStartTime = 0;
 
         const onDragStart = (e) => {
+            // Evitar comportamiento por defecto del navegador (selección de texto, etc.)
             e.preventDefault();
             e.stopPropagation();
+
+            // Bloquear selección de texto a nivel body
+            document.body.style.userSelect = "none";
+            document.body.style.webkitUserSelect = "none";
 
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
             startX = clientX;
             startY = clientY;
-            dragStartTime = Date.now();
-            hasDragged = false;
 
             const pipSlot = dom.playerSlotPip;
             if (!pipSlot) return;
 
+            // Obtener coordenadas físicas reales en pantalla
             const rect = pipSlot.getBoundingClientRect();
             startLeft = rect.left;
             startTop = rect.top;
+
+            // Asignar de inmediato estilo inline para evitar saltos al remover la clase de esquina
+            pipSlot.style.left = `${startLeft}px`;
+            pipSlot.style.top = `${startTop}px`;
+            pipSlot.style.bottom = "auto";
+            pipSlot.style.right = "auto";
+
+            // Eliminar las clases de esquina fijas
+            pipSlot.className = "player-slot pip-slot focusable";
 
             isDraggingPip = true;
 
@@ -155,37 +173,32 @@ function setupEventListeners() {
             if (!isDraggingPip) return;
             e.preventDefault();
 
+            // Limpiar selecciones del portapapeles/pantalla residuales
+            if (window.getSelection) {
+                window.getSelection().removeAllRanges();
+            }
+
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
             const dx = clientX - startX;
             const dy = clientY - startY;
 
-            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-                hasDragged = true;
-            }
+            const pipSlot = dom.playerSlotPip;
+            if (pipSlot) {
+                let newLeft = startLeft + dx;
+                let newTop = startTop + dy;
 
-            if (hasDragged) {
-                const pipSlot = dom.playerSlotPip;
-                if (pipSlot) {
-                    pipSlot.className = "player-slot pip-slot focusable";
-                    pipSlot.style.bottom = "auto";
-                    pipSlot.style.right = "auto";
+                const maxLeft = window.innerWidth - pipSlot.offsetWidth;
+                const maxTop = window.innerHeight - pipSlot.offsetHeight;
 
-                    let newLeft = startLeft + dx;
-                    let newTop = startTop + dy;
+                if (newLeft < 0) newLeft = 0;
+                if (newLeft > maxLeft) newLeft = maxLeft;
+                if (newTop < 0) newTop = 0;
+                if (newTop > maxTop) newTop = maxTop;
 
-                    const maxLeft = window.innerWidth - pipSlot.offsetWidth;
-                    const maxTop = window.innerHeight - pipSlot.offsetHeight;
-
-                    if (newLeft < 0) newLeft = 0;
-                    if (newLeft > maxLeft) newLeft = maxLeft;
-                    if (newTop < 0) newTop = 0;
-                    if (newTop > maxTop) newTop = maxTop;
-
-                    pipSlot.style.left = `${newLeft}px`;
-                    pipSlot.style.top = `${newTop}px`;
-                }
+                pipSlot.style.left = `${newLeft}px`;
+                pipSlot.style.top = `${newTop}px`;
             }
         };
 
@@ -198,29 +211,27 @@ function setupEventListeners() {
             document.removeEventListener("mouseup", onDragEnd);
             document.removeEventListener("touchend", onDragEnd);
 
+            // Restablecer selección de texto
+            document.body.style.userSelect = "";
+            document.body.style.webkitUserSelect = "";
+
             const overlay = document.getElementById("iframe-drag-overlay");
             if (overlay) {
                 overlay.style.display = "none";
                 overlay.style.cursor = "";
             }
 
-            const duration = Date.now() - dragStartTime;
-
-            if (!hasDragged || duration < 200) {
-                cyclePipCorner();
-            } else {
-                rebuildSpatialIndexes();
-                const pipSlot = dom.playerSlotPip;
-                if (pipSlot && activeFocusedElement === pipSlot) {
-                    pipSlot.classList.add("focused");
-                }
+            rebuildSpatialIndexes();
+            const pipSlot = dom.playerSlotPip;
+            if (pipSlot && activeFocusedElement === pipSlot) {
+                pipSlot.classList.add("focused");
             }
         };
 
-        dom.positionBtnPip.addEventListener("mousedown", onDragStart);
-        dom.positionBtnPip.addEventListener("touchstart", onDragStart, { passive: false });
+        dom.btnDragSlotPip.addEventListener("mousedown", onDragStart);
+        dom.btnDragSlotPip.addEventListener("touchstart", onDragStart, { passive: false });
 
-        dom.positionBtnPip.addEventListener("click", (e) => {
+        dom.btnDragSlotPip.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
         });
