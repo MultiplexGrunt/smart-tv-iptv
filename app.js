@@ -415,7 +415,7 @@ function isTvAztecaMatch(eventTitle, match) {
         ["colombia", "repechaje"],
         ["colombia", "congo dr"],
         ["colombia", "rd congo"],
-        ["colombia", "rd del congo"],
+        ["colombia", "RD del congo"],
         ["colombia", "republica del congo"],
         ["repechaje uefa", "mexico"],
         ["ecuador", "germany"],
@@ -1033,6 +1033,9 @@ function enableSplitScreen(url, title, group, forceIframe) {
 
     appState.splitMode = true;
     dom.playerWrapper.classList.add("split-mode");
+    if (dom.appContainer) {
+        dom.appContainer.classList.add("split-mode-active");
+    }
 
     // Reproducir en Slot 2. Lo cargamos silenciado para asegurar el autoplay sin bloqueos.
     playStreamInSlot("2", url, title, group, forceIframe, true);
@@ -1049,6 +1052,9 @@ function disableSplitScreen() {
 
     appState.splitMode = false;
     dom.playerWrapper.classList.remove("split-mode");
+    if (dom.appContainer) {
+        dom.appContainer.classList.remove("split-mode-active");
+    }
 
     const slotEl2 = document.getElementById("player-slot-2");
     if (slotEl2) {
@@ -1335,17 +1341,6 @@ function updateFullscreenButtonVisibility() {
     const btn = dom.btnFullscreenToggle;
     if (!btn) return;
 
-    const hasMultipleActive = appState.splitMode || appState.pipMode;
-    if (hasMultipleActive) {
-        btn.style.display = "inline-block";
-    } else {
-        btn.style.display = "none";
-
-        // Si el botón tenía el foco y se oculta, devolver el foco a un canal
-        if (activeFocusedElement === btn) {
-            const firstBtn = dom.eventsList.querySelector(".event-stream-btn");
-            if (firstBtn) setFocus(firstBtn);
-        }
-    }
+    btn.style.display = "inline-block";
     rebuildSpatialIndexes();
 }

@@ -66,6 +66,8 @@ body {
     z-index: 20;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
                 margin-top 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
+                height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                padding 0.4s cubic-bezier(0.16, 1, 0.3, 1),
                 opacity 0.3s ease;
     flex-shrink: 0;
 }
@@ -684,7 +686,7 @@ body {
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     letter-spacing: 0.5px;
     margin-right: 10px;
-    display: none; /* Se activa dinámicamente mediante JS */
+    display: inline-block; /* Siempre visible */
 }
 
 .btn-fullscreen:focus, .btn-fullscreen.focused {
@@ -731,6 +733,70 @@ body {
     height: 22px;
     font-size: 10px;
     line-height: 1;
+}
+
+/* ── MODO PANTALLA COMPLETA CON PANTALLA PARTIDA ACTIVA ── */
+.split-mode-active .tv-events-section.hidden {
+    transform: translateY(0) !important;
+    margin-top: 0 !important;
+    height: 46px !important;
+    min-height: 46px !important;
+    padding: 0 25px !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    background: rgba(2, 7, 10, 0.9) !important;
+    backdrop-filter: blur(15px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Ocultar el top bar (título de la app, reloj, etc.) */
+.split-mode-active .tv-events-section.hidden .header-top-bar {
+    display: none !important;
+}
+
+/* Ocultar la lista de botones de streaming */
+.split-mode-active .tv-events-section.hidden .event-links-list {
+    display: none !important;
+}
+
+/* Ajustar el contenedor horizontal de las columnas de eventos */
+.split-mode-active .tv-events-section.hidden .events-columns-wrapper {
+    padding-bottom: 0 !important;
+    height: 100% !important;
+    align-items: center !important;
+    gap: 25px !important;
+    overflow: hidden !important;
+}
+
+/* Estilo para las columnas de eventos en este modo colapsado */
+.split-mode-active .tv-events-section.hidden .event-column {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-width: fit-content !important;
+    height: auto !important;
+    justify-content: center !important;
+    align-items: center;
+}
+
+/* Ocultar borde inferior de los títulos */
+.split-mode-active .tv-events-section.hidden .event-column-title {
+    border-bottom: none !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    gap: 8px !important;
+    font-size: 13px !important;
+    color: var(--teal-neon) !important; /* Resaltar los títulos en este modo */
+}
+
+/* Ocultar la hora del evento en pantalla completa para ahorrar espacio */
+.split-mode-active .tv-events-section.hidden .event-column-title span[style*="font-size: 10px"] {
+    display: none !important;
 }
 
 
