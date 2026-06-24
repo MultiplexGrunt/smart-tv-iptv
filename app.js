@@ -682,6 +682,12 @@ function renderLiveEvents(events, container) {
             }
         }
 
+        // Si no hay marcador de La Cancha pero todos los links de stream están en estado finished
+        const allLinksFinished = sortedLinks.length > 0 && sortedLinks.every(lk => lk.status === "finished");
+        if (allLinksFinished && !badgeHtml) {
+            badgeHtml = `<span class="final-score-badge" style="margin-left: 5px; font-size: 7px; padding: 1px 4px;">FINAL</span>`;
+        }
+
         const linksHtml = sortedLinks.map(lk => {
             const qualityClass = lk.quality.type === "fhd" ? "fhd" : lk.quality.type === "sd" ? "sd" : "";
             const label = lk.server;
@@ -1905,16 +1911,27 @@ function setupSplitResizerEvents() {
 function autoPlayIntelligent(events, container) {
     if (!events || events.length === 0) return;
 
-    // 1. Tomar el primer evento como referencia de hora
-    const refTime = events[0].time;
-    // Filtrar todos los eventos que comparten exactamente esa hora y que tienen enlaces de stream
-    const concurrentEvents = events.filter(e => e.time === refTime && e.links && e.links.length > 0);
+    // 1. Filtrar eventos que tengan links y al menos un link activo ("live")
+    const activeEvents = events.filter(e => {
+        return e.links && e.links.some(lk => lk.status === "live");
+    });
 
-    console.log(`[AutoPlay] Detectados ${concurrentEvents.length} eventos en vivo simultáneos para las ${refTime}`);
+    if (activeEvents.length === 0) {
+        console.log("[AutoPlay] No se detectaron transmisiones activas en vivo actualmente para reproducir automáticamente.");
+        return;
+    }
+
+    // 2. Tomar el primer evento activo como referencia de hora
+    const refTime = activeEvents[0].time;
+
+    // 3. Filtrar todos los eventos activos que comparten esa misma hora de inicio
+    const concurrentEvents = activeEvents.filter(e => e.time === refTime);
+
+    console.log(`[AutoPlay] Detectados ${concurrentEvents.length} eventos activos simultáneos para las ${refTime}`);
 
     if (concurrentEvents.length === 1) {
         const ev1 = concurrentEvents[0];
-        const lk1 = ev1.links[0];
+        const lk1 = ev1.links.find(lk => lk.status === "live") || ev1.links[0];
         const pageUrl = lk1.url;
         const streamName = `${ev1.title} — ${lk1.server}`;
 
@@ -1925,14 +1942,14 @@ function autoPlayIntelligent(events, container) {
             btn1.classList.add("active-play");
         }
 
-        console.log(`[AutoPlay] Reproduciendo 1 canal: ${streamName}`);
+        console.log(`[AutoPlay] Reproduciendo 1 canal activo: ${streamName}`);
         playStream(pageUrl, streamName, ev1.category, true);
     } 
     else if (concurrentEvents.length === 2) {
         const ev1 = concurrentEvents[0];
-        const lk1 = ev1.links[0];
+        const lk1 = ev1.links.find(lk => lk.status === "live") || ev1.links[0];
         const ev2 = concurrentEvents[1];
-        const lk2 = ev2.links[0];
+        const lk2 = ev2.links.find(lk => lk.status === "live") || ev2.links[0];
 
         // Marcar botones en el DOM
         const btn1 = container.querySelector(`.event-stream-btn[data-page-url="${encodeURIComponent(lk1.url)}"]`);
@@ -1945,7 +1962,7 @@ function autoPlayIntelligent(events, container) {
             btn2.classList.add("active-play");
         }
 
-        console.log(`[AutoPlay] Reproduciendo pantalla partida (2 canales): ${ev1.title} + ${ev2.title}`);
+        console.log(`[AutoPlay] Reproduciendo pantalla partida activa (2 canales): ${ev1.title} + ${ev2.title}`);
         // Reproducir Slot 1 principal
         playStream(lk1.url, `${ev1.title} — ${lk1.server}`, ev1.category, true);
         // Reproducir Slot 2 (Split)
@@ -1953,11 +1970,11 @@ function autoPlayIntelligent(events, container) {
     } 
     else if (concurrentEvents.length >= 3) {
         const ev1 = concurrentEvents[0];
-        const lk1 = ev1.links[0];
+        const lk1 = ev1.links.find(lk => lk.status === "live") || ev1.links[0];
         const ev2 = concurrentEvents[1];
-        const lk2 = ev2.links[0];
+        const lk2 = ev2.links.find(lk => lk.status === "live") || ev2.links[0];
         const ev3 = concurrentEvents[2];
-        const lk3 = ev3.links[0];
+        const lk3 = ev3.links.find(lk => lk.status === "live") || ev3.links[0];
 
         // Marcar botones en el DOM
         const btn1 = container.querySelector(`.event-stream-btn[data-page-url="${encodeURIComponent(lk1.url)}"]`);
@@ -1974,7 +1991,7 @@ function autoPlayIntelligent(events, container) {
             btn3.classList.add("active-play");
         }
 
-        console.log(`[AutoPlay] Reproduciendo Multi-View (3 canales): ${ev1.title} + ${ev2.title} + ${ev3.title}`);
+        console.log(`[AutoPlay] Reproduciendo Multi-View activa (3 canales): ${ev1.title} + ${ev2.title} + ${ev3.title}`);
         // Reproducir Slot 1 principal
         playStream(lk1.url, `${ev1.title} — ${lk1.server}`, ev1.category, true);
         // Reproducir Slot 2 (Split)
