@@ -927,45 +927,6 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
     }
 }
 
-// Intenta extraer una URL de stream m3u8 directa de una página web a través de regex
-async function resolveM3u8FromWebPage(pageUrl) {
-    console.log(`Intentando resolver m3u8 desde la página: ${pageUrl}`);
-    try {
-        const proxyUrl = buildProxyUrl(pageUrl);
-        const res = await fetchWithTimeout(proxyUrl, {}, 5000);
-        if (!res.ok) return null;
-
-        const html = await res.text();
-
-        // 1. Regex para buscar URLs de m3u8 directas
-        const m3u8Regex = /(https?:\/\/[^"'`\s\\]+\.m3u8[^"'`\s\\]*)/i;
-        let match = html.match(m3u8Regex);
-
-        if (match && match[1]) {
-            let resolvedUrl = match[1];
-            // Limpiar posibles caracteres de escape de JSON
-            resolvedUrl = resolvedUrl.replace(/\\/g, '');
-            console.log(`m3u8 resuelto exitosamente: ${resolvedUrl}`);
-            return resolvedUrl;
-        }
-
-        // 2. Intento secundario: buscar URLs escapadas de JSON (ej: https:\/\/...)
-        const escapedM3u8Regex = /(https?:\\\/\\\/[^"'`\s]+\.m3u8[^"'`\s]*)/i;
-        match = html.match(escapedM3u8Regex);
-        if (match && match[1]) {
-            let resolvedUrl = match[1].replace(/\\/g, '');
-            console.log(`m3u8 escapado resuelto exitosamente: ${resolvedUrl}`);
-            return resolvedUrl;
-        }
-
-        console.log("No se encontró ningún enlace m3u8 directo en el HTML de la página.");
-        return null;
-    } catch (err) {
-        console.warn("Error al intentar resolver la página de streaming:", err);
-        return null;
-    }
-}
-
 // ── REPRODUCTOR DE VIDEO ABSTRACTO POR RANURA (SLOT) ──
 async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = false) {
     console.log(`[Slot ${slotId}] Reproduciendo: ${title} -> ${url} (forceIframe=${forceIframe}, isMuted=${isMuted})`);
@@ -981,19 +942,6 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
     let targetUrl = url;
     let actualForceIframe = forceIframe;
     let modifiedAztecaHtml = "";
-
-    // Resolvedor dinámico de m3u8 para forzar reproducción nativa si es posible
-    if (forceIframe && !isAztecaUrl) {
-        dom.playerLoader.style.display = "flex";
-        const resolvedM3u8 = await resolveM3u8FromWebPage(url);
-        dom.playerLoader.style.display = "none";
-
-        if (resolvedM3u8) {
-            targetUrl = resolvedM3u8;
-            actualForceIframe = false; // Forzar reproducción nativa en tag <video>
-            console.log(`[Slot ${slotId}] Canal resuelto a m3u8 nativo. Desactivado modo iframe.`);
-        }
-    }
 
     if (isAztecaUrl) {
         console.log(`[Slot ${slotId}] Interceptada señal de TV Azteca. Cargando HTML modificado para ocultar elementos molestos...`);
