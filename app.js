@@ -879,7 +879,7 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
     // Mostrar el contenedor del slot
     slotEl.style.display = "block";
 
-    const videoEl = document.getElementById(`tv-video-player-${slotId}`);
+    let videoEl = document.getElementById(`tv-video-player-${slotId}`);
     const iframeEl = document.getElementById(`tv-iframe-player-${slotId}`);
 
     if (!videoEl || !iframeEl) return;
@@ -891,13 +891,30 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
         appState[hlsKey] = null;
     }
 
-    // Limpiar reproducciones anteriores
+    // Detener reproducciones anteriores del video viejo
     videoEl.pause();
     videoEl.src = "";
     videoEl.removeAttribute("src");
     try {
         videoEl.load();
     } catch (e) { }
+
+    // Recrear dinámicamente el elemento de video para evitar el bug de MSE + Web Audio y errores "already connected"
+    const newVideoEl = document.createElement("video");
+    newVideoEl.id = `tv-video-player-${slotId}`;
+    newVideoEl.controls = true;
+    newVideoEl.autoplay = true;
+    newVideoEl.crossOrigin = "anonymous";
+    if (videoEl.className) newVideoEl.className = videoEl.className;
+    
+    // Reemplazar en el DOM
+    videoEl.parentNode.replaceChild(newVideoEl, videoEl);
+    videoEl = newVideoEl;
+
+    // Conectar el nuevo elemento a la API de Web Audio si ya fue inicializada
+    if (typeof connectVideoToWebAudio === "function") {
+        connectVideoToWebAudio(slotId, videoEl);
+    }
 
     iframeEl.src = "about:blank";
     iframeEl.removeAttribute("srcdoc");
@@ -1402,48 +1419,77 @@ async function initWebAudio() {
             await audioCtx.resume();
         }
 
+        // Crear los panners globales
+        if (audioCtx.createStereoPanner) {
+            audioPanners.slot1 = audioCtx.createStereoPanner();
+            audioPanners.slot2 = audioCtx.createStereoPanner();
+        } else {
+            audioPanners.slot1 = audioCtx.createPanner();
+            audioPanners.slot1.panningModel = 'HRTF';
+            audioPanners.slot2 = audioCtx.createPanner();
+            audioPanners.slot2.panningModel = 'HRTF';
+        }
+
+        // Conectar los panners al destino de audio (altavoces)
+        audioPanners.slot1.connect(audioCtx.destination);
+        audioPanners.slot2.connect(audioCtx.destination);
+
+        // Inicialmente en estéreo centrado (pan = 0)
+        resetPannerValue(audioPanners.slot1, 0);
+        resetPannerValue(audioPanners.slot2, 0);
+
+        // Conectar los elementos de video actuales si ya existen en el DOM
         const video1 = document.getElementById("tv-video-player-1");
         const video2 = document.getElementById("tv-video-player-2");
+        if (video1) connectVideoToWebAudio("1", video1);
+        if (video2) connectVideoToWebAudio("2", video2);
 
-        if (video1 && !audioSources.slot1) {
-            audioSources.slot1 = audioCtx.createMediaElementSource(video1);
-            if (audioCtx.createStereoPanner) {
-                audioPanners.slot1 = audioCtx.createStereoPanner();
-            } else {
-                audioPanners.slot1 = audioCtx.createPanner();
-                audioPanners.slot1.panningModel = 'HRTF';
-            }
-            audioSources.slot1.connect(audioPanners.slot1);
-            audioPanners.slot1.connect(audioCtx.destination);
-            if (audioPanners.slot1.pan) {
-                audioPanners.slot1.pan.value = 0;
-            } else {
-                audioPanners.slot1.setPosition(0, 0, 0);
-            }
-        }
-
-        if (video2 && !audioSources.slot2) {
-            audioSources.slot2 = audioCtx.createMediaElementSource(video2);
-            if (audioCtx.createStereoPanner) {
-                audioPanners.slot2 = audioCtx.createStereoPanner();
-            } else {
-                audioPanners.slot2 = audioCtx.createPanner();
-                audioPanners.slot2.panningModel = 'HRTF';
-            }
-            audioSources.slot2.connect(audioPanners.slot2);
-            audioPanners.slot2.connect(audioCtx.destination);
-            if (audioPanners.slot2.pan) {
-                audioPanners.slot2.pan.value = 0;
-            } else {
-                audioPanners.slot2.setPosition(0, 0, 0);
-            }
-        }
-
-        console.log("Web Audio API inicializado correctamente y conectado a los reproductores.");
+        console.log("Web Audio API inicializado correctamente y panners globales conectados.");
         return true;
     } catch (e) {
         console.error("Error al inicializar Web Audio API:", e);
         return false;
+    }
+}
+
+function resetPannerValue(panner, value) {
+    if (!panner) return;
+    if (panner.pan) {
+        panner.pan.value = value;
+    } else {
+        panner.setPosition(value, 0, 0);
+    }
+}
+
+function connectVideoToWebAudio(slotId, videoEl) {
+    if (!audioCtx) return; // Se conectará después cuando se inicialice el contexto
+
+    try {
+        const key = `slot${slotId}`;
+        
+        // Si ya hay una fuente previa conectada, intentar desconectarla
+        if (audioSources[key]) {
+            try {
+                audioSources[key].disconnect();
+            } catch(err){}
+        }
+
+        // Crear nueva fuente para la nueva instancia del elemento de video
+        const source = audioCtx.createMediaElementSource(videoEl);
+        source.connect(audioPanners[key]);
+        audioSources[key] = source;
+
+        // Si el audio dividido está activo, aplicar el balance correspondiente de inmediato
+        if (appState.audioSplit) {
+            const panVal = slotId === "1" ? -1 : 1;
+            resetPannerValue(audioPanners[key], panVal);
+        } else {
+            resetPannerValue(audioPanners[key], 0);
+        }
+        
+        console.log(`[Slot ${slotId}] Video conectado exitosamente a la Web Audio API.`);
+    } catch (e) {
+        console.error(`Error al conectar video de slot ${slotId} a Web Audio API:`, e);
     }
 }
 
@@ -1474,21 +1520,8 @@ async function toggleAudioSplit() {
     if (appState.audioSplit) {
         console.log("Activando audio dividido L/R...");
         
-        if (audioPanners.slot1) {
-            if (audioPanners.slot1.pan) {
-                audioPanners.slot1.pan.setValueAtTime(-1, audioCtx.currentTime);
-            } else {
-                audioPanners.slot1.setPosition(-1, 0, 0);
-            }
-        }
-
-        if (audioPanners.slot2) {
-            if (audioPanners.slot2.pan) {
-                audioPanners.slot2.pan.setValueAtTime(1, audioCtx.currentTime);
-            } else {
-                audioPanners.slot2.setPosition(1, 0, 0);
-            }
-        }
+        resetPannerValue(audioPanners.slot1, -1);
+        resetPannerValue(audioPanners.slot2, 1);
 
         // Des-silenciar el reproductor 2
         video2.muted = false;
@@ -1499,21 +1532,8 @@ async function toggleAudioSplit() {
     } else {
         console.log("Desactivando audio dividido...");
 
-        if (audioPanners.slot1) {
-            if (audioPanners.slot1.pan) {
-                audioPanners.slot1.pan.setValueAtTime(0, audioCtx.currentTime);
-            } else {
-                audioPanners.slot1.setPosition(0, 0, 0);
-            }
-        }
-
-        if (audioPanners.slot2) {
-            if (audioPanners.slot2.pan) {
-                audioPanners.slot2.pan.setValueAtTime(0, audioCtx.currentTime);
-            } else {
-                audioPanners.slot2.setPosition(0, 0, 0);
-            }
-        }
+        resetPannerValue(audioPanners.slot1, 0);
+        resetPannerValue(audioPanners.slot2, 0);
 
         // Volver a silenciar el reproductor 2
         video2.muted = true;
