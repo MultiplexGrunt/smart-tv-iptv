@@ -1272,9 +1272,9 @@ function cyclePipCorner() {
     }
 }
 
-// Cambiar secuencialmente el tamaño de PiP (Pequeño -> Mediano -> Grande)
+// Cambiar secuencialmente el tamaño de PiP (Pequeño -> Mediano -> Grande -> Extra Grande)
 function cyclePipSize() {
-    const sizes = ["small", "medium", "large"];
+    const sizes = ["small", "medium", "large", "xlarge"];
     let currentIndex = sizes.indexOf(appState.pipSize);
     let nextIndex = (currentIndex + 1) % sizes.length;
     appState.pipSize = sizes[nextIndex];
@@ -1299,6 +1299,9 @@ function applyPipSize() {
     } else if (appState.pipSize === "large") {
         width = 480;
         height = 270;
+    } else if (appState.pipSize === "xlarge") {
+        width = 580;
+        height = 326;
     }
 
     pipSlot.style.setProperty("--pip-width", `${width}px`);
@@ -1352,21 +1355,40 @@ function handleCloseSlot1() {
     console.log("[Smart Close - Seamless] Cerrando Slot 1...");
     
     if (appState.slotsData["2"] && appState.slotsData["pip"]) {
-        // Caso 3 pantallas: Cierra 1.
+        // Caso 3 pantallas: Cierra 1. Promueve físicamente 2 -> 1 y Pip -> 2. Libera Pip.
+        const data2 = appState.slotsData["2"];
+        const dataPip = appState.slotsData["pip"];
+
         stopSlotPlayer("1");
-        appState.slotsData["1"] = null;
+        stopSlotPlayer("2");
+        stopSlotPlayer("pip");
+
+        playStreamInSlot("1", data2.url, data2.title, data2.group, data2.forceIframe, false);
+        appState.currentPlayingUrl = data2.url;
+
+        playStreamInSlot("2", dataPip.url, dataPip.title, dataPip.group, dataPip.forceIframe, true);
+
+        appState.slotsData["pip"] = null;
         appState.pipMode = false;
     }
     else if (appState.slotsData["2"]) {
         // Caso 2 pantallas (Slot 1 y Slot 2). Cierra 1.
+        // Aquí NO es necesario recargar físicamente. El Slot 2 físico asume el rol single.
         stopSlotPlayer("1");
         appState.slotsData["1"] = null;
         appState.splitMode = false;
     }
     else if (appState.slotsData["pip"]) {
-        // Caso 2 pantallas (Slot 1 y PiP). Cierra 1.
+        // Caso 2 pantallas (Slot 1 y PiP). Cierra 1. Promueve físicamente Pip -> 1. Libera Pip.
+        const dataPip = appState.slotsData["pip"];
+
         stopSlotPlayer("1");
-        appState.slotsData["1"] = null;
+        stopSlotPlayer("pip");
+
+        playStreamInSlot("1", dataPip.url, dataPip.title, dataPip.group, dataPip.forceIframe, false);
+        appState.currentPlayingUrl = dataPip.url;
+
+        appState.slotsData["pip"] = null;
         appState.pipMode = false;
     }
     else {
@@ -1383,9 +1405,15 @@ function handleCloseSlot2() {
     console.log("[Smart Close - Seamless] Cerrando Slot 2...");
     
     if (appState.slotsData["1"] && appState.slotsData["pip"]) {
-        // Caso 3 pantallas: Cierra 2.
+        // Caso 3 pantallas: Cierra 2. Promueve físicamente Pip -> 2. Libera Pip.
+        const dataPip = appState.slotsData["pip"];
+
         stopSlotPlayer("2");
-        appState.slotsData["2"] = null;
+        stopSlotPlayer("pip");
+
+        playStreamInSlot("2", dataPip.url, dataPip.title, dataPip.group, dataPip.forceIframe, true);
+
+        appState.slotsData["pip"] = null;
         appState.pipMode = false;
     }
     else {
