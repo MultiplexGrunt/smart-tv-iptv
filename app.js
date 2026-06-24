@@ -1647,6 +1647,7 @@ function setupSplitResizerEvents() {
     const resizer = dom.splitResizer;
     const wrapper = dom.playerWrapper;
     const slot1 = document.getElementById("player-slot-1");
+    const overlay = document.getElementById("iframe-drag-overlay");
 
     if (!resizer || !wrapper || !slot1) return;
 
@@ -1654,6 +1655,9 @@ function setupSplitResizerEvents() {
         e.preventDefault();
         isDraggingResizer = true;
         resizer.classList.add("focused");
+        if (overlay) {
+            overlay.style.display = "block";
+        }
     };
 
     const doDrag = (e) => {
@@ -1681,6 +1685,9 @@ function setupSplitResizerEvents() {
         if (isDraggingResizer) {
             isDraggingResizer = false;
             resizer.classList.remove("focused");
+            if (overlay) {
+                overlay.style.display = "none";
+            }
             rebuildSpatialIndexes();
         }
     };
