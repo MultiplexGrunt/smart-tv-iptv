@@ -482,8 +482,8 @@ body {
 
 /* Slot PiP Flotante */
 .pip-slot {
-    width: 384px !important;
-    height: 216px !important;
+    width: var(--pip-width, 384px) !important;
+    height: var(--pip-height, 216px) !important;
     position: absolute !important;
     z-index: 50 !important;
     border-radius: 12px;
@@ -749,6 +749,43 @@ body {
     box-shadow: 0 0 10px var(--primary-glow);
     transform: scale(1.05);
     color: #fff;
+}
+
+/* ── BOTÓN PARA CAMBIAR TAMAÑO DEL PIP ── */
+.slot-resize-btn {
+    position: absolute;
+    top: 15px;
+    right: 126px; /* A la izquierda de arrastre */
+    width: 32px;
+    height: 32px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    color: #fff;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 15;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slot-resize-btn:focus, .slot-resize-btn.focused {
+    background: var(--primary-gradient) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 10px rgba(255, 140, 0, 0.6) !important;
+    transform: scale(1.1);
+    color: #fff !important;
+}
+
+#player-slot-pip .slot-resize-btn {
+    top: 8px;
+    right: 86px; /* Separación exacta a la izquierda del botón de arrastre */
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+    line-height: 1;
 }
 
 /* ── BOTÓN PARA ARRASTRAR LIBREMENTE EL PIP ── */

@@ -20,6 +20,7 @@ let appState = {
     splitMode: false,
     pipMode: false,
     pipCorner: "pip-top-left",
+    pipSize: "medium",          // Tamaño de PiP: "small", "medium", "large"
     scores: [],                  // Almacén de marcadores deportivos en tiempo real
     audioSplit: false           // Estado de audio dividido
 };
@@ -43,6 +44,7 @@ const dom = {
     btnAudioSplit: document.getElementById("btn-audio-split"),
     positionBtnPip: document.getElementById("btn-position-slot-pip"),
     btnDragSlotPip: document.getElementById("btn-drag-slot-pip"),
+    btnResizeSlotPip: document.getElementById("btn-resize-slot-pip"),
     splitResizer: document.getElementById("split-resizer")
 };
 
@@ -234,6 +236,12 @@ function setupEventListeners() {
         dom.btnDragSlotPip.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
+        });
+    }
+    if (dom.btnResizeSlotPip) {
+        dom.btnResizeSlotPip.addEventListener("click", (e) => {
+            e.stopPropagation();
+            cyclePipSize();
         });
     }
     if (dom.btnFullscreenToggle) {
@@ -1353,6 +1361,10 @@ function enablePipScreen(url, title, group, forceIframe) {
         pipSlot.style.bottom = "";
         pipSlot.style.right = "";
         pipSlot.className = `player-slot pip-slot ${appState.pipCorner} focusable`;
+        
+        // Asegurar que se aplique el tamaño configurado en appState
+        applyPipSize();
+        
         rebuildSpatialIndexes();
     }
 
@@ -1383,6 +1395,65 @@ function cyclePipCorner() {
             pipSlot.classList.add("focused");
         }
         console.log(`PiP rotado a: ${appState.pipCorner}`);
+    }
+}
+
+// Cambiar secuencialmente el tamaño de PiP (Pequeño -> Mediano -> Grande)
+function cyclePipSize() {
+    const sizes = ["small", "medium", "large"];
+    let currentIndex = sizes.indexOf(appState.pipSize);
+    let nextIndex = (currentIndex + 1) % sizes.length;
+    appState.pipSize = sizes[nextIndex];
+
+    applyPipSize();
+}
+
+// Aplicar dimensiones al PiP basado en appState.pipSize
+function applyPipSize() {
+    const pipSlot = dom.playerSlotPip;
+    if (!pipSlot) return;
+
+    let width = 384;
+    let height = 216;
+
+    if (appState.pipSize === "small") {
+        width = 280;
+        height = 157;
+    } else if (appState.pipSize === "medium") {
+        width = 384;
+        height = 216;
+    } else if (appState.pipSize === "large") {
+        width = 480;
+        height = 270;
+    }
+
+    pipSlot.style.setProperty("--pip-width", `${width}px`);
+    pipSlot.style.setProperty("--pip-height", `${height}px`);
+
+    console.log(`[PiP] Tamaño establecido a: ${appState.pipSize} (${width}x${height}px)`);
+
+    // Si el PiP ya ha sido arrastrado (tiene left inline), asegurar que no se desborde al crecer
+    if (pipSlot.style.left) {
+        let left = parseFloat(pipSlot.style.left) || 0;
+        let top = parseFloat(pipSlot.style.top) || 0;
+
+        const maxLeft = window.innerWidth - width;
+        const maxTop = window.innerHeight - height;
+
+        if (left < 0) left = 0;
+        if (left > maxLeft) left = maxLeft;
+        if (top < 0) top = 0;
+        if (top > maxTop) top = maxTop;
+
+        pipSlot.style.left = `${left}px`;
+        pipSlot.style.top = `${top}px`;
+    }
+
+    rebuildSpatialIndexes();
+
+    // Mantener la clase de foco espacial si está enfocado
+    if (activeFocusedElement === pipSlot) {
+        pipSlot.classList.add("focused");
     }
 }
 
