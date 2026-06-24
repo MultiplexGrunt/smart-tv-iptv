@@ -125,9 +125,14 @@ body {
 }
 
 .header-status {
+    position: absolute;
+    top: 18px;
+    right: 25px;
+    z-index: 100;
     display: flex;
     align-items: center;
     gap: 15px;
+    pointer-events: auto;
 }
 
 .live-badge {
@@ -678,15 +683,16 @@ body {
     border: 1px solid var(--border-light);
     border-radius: 8px;
     color: var(--text-main);
-    font-family: var(--font-heading);
-    font-size: 11px;
-    font-weight: 700;
-    padding: 6px 14px;
+    font-size: 16px;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    letter-spacing: 0.5px;
     margin-right: 10px;
-    display: inline-block; /* Siempre visible */
+    padding: 0;
 }
 
 .btn-fullscreen:focus, .btn-fullscreen.focused {
@@ -735,16 +741,7 @@ body {
     line-height: 1;
 }
 
-/* ── BOTONERA DE ESTADO FLOTANTE EN PANTALLA COMPLETA ── */
-.tv-events-section.hidden .header-status {
-    position: fixed;
-    top: 15px;
-    right: 25px;
-    z-index: 110;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    display: flex !important;
-}
+
 
 /* ── BOTÓN DE AUDIO DIVIDIDO (AURICULARES L/R) ── */
 .btn-audio-split {

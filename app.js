@@ -53,6 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(loadLiveEvents, CONFIG.EVENTS_REFRESH_MS);
 
     setupEventListeners();
+    setupAudioAutoInit();
 });
 
 // ── RELOJ DEL SISTEMA ──
@@ -1180,7 +1181,7 @@ function setMenuHidden(hidden) {
     if (hidden) {
         dom.eventsSection.classList.add("hidden");
         if (dom.btnFullscreenToggle) {
-            dom.btnFullscreenToggle.textContent = "MOSTRAR MENÚ";
+            dom.btnFullscreenToggle.textContent = "📺";
         }
         // Desenfocar elemento actual para que el foco no interfiera
         if (activeFocusedElement) {
@@ -1189,7 +1190,7 @@ function setMenuHidden(hidden) {
     } else {
         dom.eventsSection.classList.remove("hidden");
         if (dom.btnFullscreenToggle) {
-            dom.btnFullscreenToggle.textContent = "PANTALLA COMPLETA";
+            dom.btnFullscreenToggle.textContent = "⛶";
         }
 
         // Recuperar el foco en el último botón activo o en el primero disponible
@@ -1385,10 +1386,10 @@ let audioPanners = {
     slot2: null
 };
 
-function initWebAudio() {
+async function initWebAudio() {
     if (audioCtx) {
         if (audioCtx.state === "suspended") {
-            audioCtx.resume();
+            await audioCtx.resume();
         }
         return true;
     }
@@ -1396,6 +1397,10 @@ function initWebAudio() {
     try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioContextClass();
+
+        if (audioCtx.state === "suspended") {
+            await audioCtx.resume();
+        }
 
         const video1 = document.getElementById("tv-video-player-1");
         const video2 = document.getElementById("tv-video-player-2");
@@ -1434,7 +1439,7 @@ function initWebAudio() {
             }
         }
 
-        console.log("Web Audio API inicializado correctamente.");
+        console.log("Web Audio API inicializado correctamente y conectado a los reproductores.");
         return true;
     } catch (e) {
         console.error("Error al inicializar Web Audio API:", e);
@@ -1442,13 +1447,23 @@ function initWebAudio() {
     }
 }
 
-function toggleAudioSplit() {
+function setupAudioAutoInit() {
+    const initHandler = async () => {
+        await initWebAudio();
+        document.removeEventListener("click", initHandler);
+        document.removeEventListener("keydown", initHandler);
+    };
+    document.addEventListener("click", initHandler);
+    document.addEventListener("keydown", initHandler);
+}
+
+async function toggleAudioSplit() {
     if (!appState.splitMode) {
         console.warn("Audio dividido solo disponible en modo pantalla partida.");
         return;
     }
 
-    const initialized = initWebAudio();
+    const initialized = await initWebAudio();
     if (!initialized) return;
 
     const video2 = document.getElementById("tv-video-player-2");

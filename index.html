@@ -21,6 +21,13 @@
 
     <div class="tv-app-container">
 
+        <!-- Botonera y Reloj Flotante Global (Encima de todo) -->
+        <div class="header-status" id="header-status-global">
+            <button class="btn-fullscreen focusable" id="btn-fullscreen-toggle" tabindex="0" title="Alternar Menú / Pantalla Completa">⛶</button>
+            <button class="btn-audio-split focusable" id="btn-audio-split" tabindex="0" title="Audio Dividido (Auriculares L/R)">🎧</button>
+            <div class="tv-clock" id="system-clock">00:00</div>
+        </div>
+
         <!-- ── PANEL DE EVENTOS SUPERIOR (30% DE LA PANTALLA) ── -->
         <header class="tv-events-section" id="tv-events-section">
             <div class="header-top-bar">
@@ -28,11 +35,6 @@
                     <span class="brand-glow"></span>
                     <span class="brand-title">GrunTV</span>
                     <span class="brand-subtitle">Live Sports</span>
-                </div>
-                <div class="header-status">
-                    <button class="btn-fullscreen focusable" id="btn-fullscreen-toggle" tabindex="0">PANTALLA COMPLETA</button>
-                    <button class="btn-audio-split focusable" id="btn-audio-split" tabindex="0" title="Audio Dividido (Auriculares L/R)">🎧</button>
-                    <div class="tv-clock" id="system-clock">00:00</div>
                 </div>
             </div>
 
@@ -51,7 +53,7 @@
 
                 <!-- RANURA 1: Principal / Izquierda -->
                 <div class="player-slot active-slot" id="player-slot-1">
-                    <video id="tv-video-player-1" controls autoplay></video>
+                    <video id="tv-video-player-1" controls autoplay crossorigin="anonymous"></video>
                     <iframe id="tv-iframe-player-1" allow="autoplay; encrypted-media; picture-in-picture"
                         allowfullscreen></iframe>
                     <button class="slot-close-btn focusable" id="btn-close-slot-1" tabindex="0"
@@ -60,7 +62,7 @@
 
                 <!-- RANURA 2: Secundaria / Derecha (Pantalla Partida) -->
                 <div class="player-slot" id="player-slot-2" style="display: none;">
-                    <video id="tv-video-player-2" controls autoplay></video>
+                    <video id="tv-video-player-2" controls autoplay crossorigin="anonymous"></video>
                     <iframe id="tv-iframe-player-2" allow="autoplay; encrypted-media; picture-in-picture"
                         allowfullscreen></iframe>
                     <div class="slot-badge">PANTALLA 2</div>
