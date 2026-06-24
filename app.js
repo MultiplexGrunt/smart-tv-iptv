@@ -1907,15 +1907,52 @@ function setupSplitResizerEvents() {
     document.addEventListener("touchend", stopDrag);
 }
 
+// Helper para convertir la hora del JSON (UTC-5) a un objeto Date local del navegador
+function getEventLocalDate(evTime) {
+    if (!evTime) return null;
+    try {
+        const timeParts = evTime.split(":");
+        if (timeParts.length === 2) {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = (today.getMonth() + 1).toString().padStart(2, '0');
+            const day = today.getDate().toString().padStart(2, '0');
+            // wc.json asume por defecto la zona horaria UTC-5
+            const isoStr = `${year}-${month}-${day}T${timeParts[0]}:${timeParts[1]}:00-05:00`;
+            return new Date(isoStr);
+        }
+    } catch (e) {
+        console.warn("Error parseando fecha de evento:", e);
+    }
+    return null;
+}
+
 // ── AUTO-REPRODUCCIÓN INTELIGENTE MULTI-PANTALLA ──
 function autoPlayIntelligent(events, container) {
     if (!events || events.length === 0) return;
 
-    // 1. Filtrar eventos que NO hayan finalizado (según marcadores en vivo de La Cancha)
+    const now = new Date();
+
+    // 1. Filtrar eventos que tengan links y NO hayan finalizado (según marcadores de La Cancha o tiempo transcurrido)
     const nonFinishedEvents = events.filter(ev => {
+        if (!ev.links || ev.links.length === 0) return false;
+
+        // Comprobar estado en marcadores de La Cancha
         const match = findMatchingMatch(ev.title, appState.scores);
-        const isFinished = match && match.status === "finished";
-        return !isFinished && ev.links && ev.links.length > 0;
+        if (match && match.status === "finished") {
+            return false;
+        }
+
+        // Si no hay match de La Cancha, usamos el tiempo transcurrido como salvaguarda:
+        // Si ya pasaron más de 150 minutos (2.5 horas) desde su hora programada de inicio, asumimos finalizado.
+        const eventDate = getEventLocalDate(ev.time);
+        if (eventDate) {
+            const diffMinutes = (now - eventDate) / (1000 * 60);
+            if (diffMinutes > 150) {
+                return false;
+            }
+        }
+        return true;
     });
 
     if (nonFinishedEvents.length === 0) {
@@ -1923,25 +1960,35 @@ function autoPlayIntelligent(events, container) {
         return;
     }
 
-    // 2. Buscar eventos que estén activamente en vivo (jugándose ahora según La Cancha)
-    const liveEvents = nonFinishedEvents.filter(ev => {
+    // 2. Buscar eventos que estén activamente en vivo (jugándose ahora según La Cancha o dentro de su ventana temporal de transmisión)
+    const activeEvents = nonFinishedEvents.filter(ev => {
         const match = findMatchingMatch(ev.title, appState.scores);
-        return match && (match.status === "live" || match.status === "in_play" || match.time_elapsed);
+        // Si La Cancha dice explícitamente que está en juego
+        if (match && (match.status === "live" || match.status === "in_play" || match.time_elapsed)) {
+            return true;
+        }
+        // Si no hay match o está programado, pero la hora actual cae en la ventana activa (desde 10 min antes hasta 150 min después)
+        const eventDate = getEventLocalDate(ev.time);
+        if (eventDate) {
+            const diffMinutes = (now - eventDate) / (1000 * 60);
+            return (diffMinutes >= -10 && diffMinutes <= 150);
+        }
+        return false;
     });
 
     let targetEvents = [];
     let refTime = "";
 
-    if (liveEvents.length > 0) {
-        // Prioridad: reproducir los que estén activamente en vivo
-        refTime = liveEvents[0].time;
-        targetEvents = liveEvents.filter(e => e.time === refTime);
-        console.log(`[AutoPlay] Priorizando eventos en vivo para las ${refTime} (${targetEvents.length} encontrados)`);
+    if (activeEvents.length > 0) {
+        // Prioridad: reproducir los que estén activos en el bloque de tiempo actual
+        refTime = activeEvents[0].time;
+        targetEvents = activeEvents.filter(e => e.time === refTime);
+        console.log(`[AutoPlay] Priorizando transmisiones activas para las ${refTime} (${targetEvents.length} encontrados)`);
     } else {
-        // Fallback: reproducir el primer bloque de eventos programados no finalizados
+        // Fallback: reproducir el primer bloque de eventos programados futuros que no han finalizado
         refTime = nonFinishedEvents[0].time;
         targetEvents = nonFinishedEvents.filter(e => e.time === refTime);
-        console.log(`[AutoPlay] No hay eventos en vivo activos. Cargando eventos programados para las ${refTime} (${targetEvents.length} encontrados)`);
+        console.log(`[AutoPlay] No hay eventos activos en este instante. Cargando próximos eventos programados para las ${refTime} (${targetEvents.length} encontrados)`);
     }
 
     if (targetEvents.length === 0) return;
