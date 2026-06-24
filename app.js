@@ -41,7 +41,8 @@ const dom = {
     closeBtnPip: document.getElementById("btn-close-slot-pip"),
     btnFullscreenToggle: document.getElementById("btn-fullscreen-toggle"),
     btnAudioSplit: document.getElementById("btn-audio-split"),
-    positionBtnPip: document.getElementById("btn-position-slot-pip")
+    positionBtnPip: document.getElementById("btn-position-slot-pip"),
+    splitResizer: document.getElementById("split-resizer")
 };
 
 // ── INICIALIZACIÓN ──
@@ -126,6 +127,9 @@ function setupEventListeners() {
             toggleAudioSplit();
         });
     }
+
+    // Configurar eventos de arrastre del divisor de pantalla partida
+    setupSplitResizerEvents();
 
     // Capturar teclado para navegación D-Pad
     document.addEventListener("keydown", handleKeyDown);
@@ -1115,6 +1119,15 @@ function enableSplitScreen(url, title, group, forceIframe) {
         dom.appContainer.classList.add("split-mode-active");
     }
 
+    const slot1 = document.getElementById("player-slot-1");
+    if (slot1) {
+        slot1.style.width = "50%";
+    }
+
+    if (dom.splitResizer) {
+        dom.splitResizer.style.display = "flex";
+    }
+
     // Reproducir en Slot 2. Lo cargamos silenciado para asegurar el autoplay sin bloqueos.
     playStreamInSlot("2", url, title, group, forceIframe, true);
 
@@ -1122,6 +1135,7 @@ function enableSplitScreen(url, title, group, forceIframe) {
     dom.playingTitle.textContent = `${dom.playingTitle.textContent.split(" | ")[0]} | ${title}`;
 
     updateFullscreenButtonVisibility();
+    rebuildSpatialIndexes();
 }
 
 // Desactivar Pantalla Partida
@@ -1132,6 +1146,15 @@ function disableSplitScreen() {
     dom.playerWrapper.classList.remove("split-mode");
     if (dom.appContainer) {
         dom.appContainer.classList.remove("split-mode-active");
+    }
+
+    const slot1 = document.getElementById("player-slot-1");
+    if (slot1) {
+        slot1.style.width = "";
+    }
+
+    if (dom.splitResizer) {
+        dom.splitResizer.style.display = "none";
     }
 
     const slotEl2 = document.getElementById("player-slot-2");
@@ -1172,6 +1195,7 @@ function disableSplitScreen() {
     }
 
     updateFullscreenButtonVisibility();
+    rebuildSpatialIndexes();
 }
 
 // Activar PiP flotante
@@ -1304,6 +1328,27 @@ function rebuildSpatialIndexes() {
 // Manejador del KeyDown para D-Pad y Control de Pantalla Completa
 function handleKeyDown(e) {
     const key = e.key;
+
+    // Lógica para ajustar el ancho con el D-pad cuando el divisor de pantalla partida está enfocado
+    if (activeFocusedElement === dom.splitResizer) {
+        if (key === "ArrowLeft" || key === "ArrowRight") {
+            e.preventDefault();
+            const slot1 = document.getElementById("player-slot-1");
+            if (slot1) {
+                let currentWidth = parseFloat(slot1.style.width) || 50;
+                const step = 3; // Modificar en pasos de 3%
+                if (key === "ArrowLeft") {
+                    currentWidth -= step;
+                } else {
+                    currentWidth += step;
+                }
+                if (currentWidth < 20) currentWidth = 20;
+                if (currentWidth > 80) currentWidth = 80;
+                slot1.style.width = `${currentWidth}%`;
+            }
+            return;
+        }
+    }
 
     // Si el menú está oculto (pantalla completa), cualquier tecla o flecha arriba lo vuelve a mostrar
     if (appState.menuHidden) {
@@ -1594,4 +1639,59 @@ async function toggleAudioSplit() {
             dom.btnAudioSplit.classList.remove("active-play");
         }
     }
+}
+
+// ── MANEJADOR DE RESIZER EN PANTALLA PARTIDA ──
+let isDraggingResizer = false;
+
+function setupSplitResizerEvents() {
+    const resizer = dom.splitResizer;
+    const wrapper = dom.playerWrapper;
+    const slot1 = document.getElementById("player-slot-1");
+
+    if (!resizer || !wrapper || !slot1) return;
+
+    const startDrag = (e) => {
+        e.preventDefault();
+        isDraggingResizer = true;
+        resizer.classList.add("focused");
+    };
+
+    const doDrag = (e) => {
+        if (!isDraggingResizer) return;
+
+        let clientX = 0;
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+        } else {
+            clientX = e.clientX;
+        }
+
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const xRelative = clientX - wrapperRect.left;
+        let percentage = (xRelative / wrapperRect.width) * 100;
+
+        // Limitar entre 20% y 80%
+        if (percentage < 20) percentage = 20;
+        if (percentage > 80) percentage = 80;
+
+        slot1.style.width = `${percentage}%`;
+    };
+
+    const stopDrag = () => {
+        if (isDraggingResizer) {
+            isDraggingResizer = false;
+            resizer.classList.remove("focused");
+            rebuildSpatialIndexes();
+        }
+    };
+
+    resizer.addEventListener("mousedown", startDrag);
+    resizer.addEventListener("touchstart", startDrag);
+
+    document.addEventListener("mousemove", doDrag);
+    document.addEventListener("touchmove", doDrag);
+
+    document.addEventListener("mouseup", stopDrag);
+    document.addEventListener("touchend", stopDrag);
 }
