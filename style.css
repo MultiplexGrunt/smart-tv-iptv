@@ -735,72 +735,54 @@ body {
     line-height: 1;
 }
 
-/* ── MODO PANTALLA COMPLETA CON PANTALLA PARTIDA ACTIVA ── */
-.split-mode-active .tv-events-section.hidden {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 100 !important;
-    transform: translateY(0) !important;
-    margin-top: 0 !important;
-    height: 50px !important;
-    min-height: 50px !important;
-    padding: 0 25px !important;
+/* ── BOTONERA DE ESTADO FLOTANTE EN PANTALLA COMPLETA ── */
+.tv-events-section.hidden .header-status {
+    position: fixed;
+    top: 15px;
+    right: 25px;
+    z-index: 110;
     opacity: 1 !important;
-    pointer-events: none !important;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.3) 70%, transparent 100%) !important;
-    border-bottom: none !important;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    pointer-events: auto !important;
+    display: flex !important;
 }
 
-/* Ocultar el top bar (título de la app, reloj, etc.) */
-.split-mode-active .tv-events-section.hidden .header-top-bar {
-    display: none !important;
-}
-
-/* Ocultar la lista de botones de streaming */
-.split-mode-active .tv-events-section.hidden .event-links-list {
-    display: none !important;
-}
-
-/* Ajustar el contenedor horizontal de las columnas de eventos */
-.split-mode-active .tv-events-section.hidden .events-columns-wrapper {
-    padding-bottom: 0 !important;
-    height: 100% !important;
-    align-items: center !important;
-    gap: 25px !important;
-    overflow: hidden !important;
-}
-
-/* Estilo para las columnas de eventos en este modo colapsado */
-.split-mode-active .tv-events-section.hidden .event-column {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    min-width: fit-content !important;
-    height: auto !important;
-    justify-content: center !important;
+/* ── BOTÓN DE AUDIO DIVIDIDO (AURICULARES L/R) ── */
+.btn-audio-split {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    color: var(--text-main);
+    font-size: 16px;
+    width: 32px;
+    height: 32px;
+    display: none; /* Oculto por defecto */
     align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    margin-right: 10px;
+    padding: 0;
 }
 
-/* Ocultar borde inferior de los títulos */
-.split-mode-active .tv-events-section.hidden .event-column-title {
-    border-bottom: none !important;
-    margin-bottom: 0 !important;
-    padding-bottom: 0 !important;
-    gap: 8px !important;
-    font-size: 13px !important;
-    color: var(--teal-neon) !important; /* Resaltar los títulos en este modo */
+.btn-audio-split:focus, .btn-audio-split.focused {
+    background: var(--primary-gradient);
+    border-color: var(--primary);
+    box-shadow: 0 0 10px var(--primary-glow);
+    transform: scale(1.05);
+    color: #fff;
 }
 
-/* Ocultar la hora del evento en pantalla completa para ahorrar espacio */
-.split-mode-active .tv-events-section.hidden .event-column-title span[style*="font-size: 10px"] {
-    display: none !important;
+/* Mostrar solo si hay pantalla partida activa */
+.split-mode-active .btn-audio-split {
+    display: inline-flex;
+}
+
+/* Estado activo del audio dividido (brillo neón) */
+.btn-audio-split.active-play {
+    border-color: var(--teal-neon) !important;
+    background: rgba(0, 240, 255, 0.15) !important;
+    box-shadow: 0 0 12px var(--teal-glow) !important;
+    color: #fff !important;
 }
 
 

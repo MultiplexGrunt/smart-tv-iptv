@@ -20,7 +20,8 @@ let appState = {
     splitMode: false,
     pipMode: false,
     pipCorner: "pip-top-right",
-    scores: []                  // Almacén de marcadores deportivos en tiempo real
+    scores: [],                  // Almacén de marcadores deportivos en tiempo real
+    audioSplit: false           // Estado de audio dividido
 };
 
 // Elementos DOM
@@ -39,6 +40,7 @@ const dom = {
     closeBtn2: document.getElementById("btn-close-slot-2"),
     closeBtnPip: document.getElementById("btn-close-slot-pip"),
     btnFullscreenToggle: document.getElementById("btn-fullscreen-toggle"),
+    btnAudioSplit: document.getElementById("btn-audio-split"),
     positionBtnPip: document.getElementById("btn-position-slot-pip")
 };
 
@@ -114,7 +116,13 @@ function setupEventListeners() {
     if (dom.btnFullscreenToggle) {
         dom.btnFullscreenToggle.addEventListener("click", (e) => {
             e.stopPropagation();
-            setMenuHidden(true);
+            setMenuHidden(!appState.menuHidden);
+        });
+    }
+    if (dom.btnAudioSplit) {
+        dom.btnAudioSplit.addEventListener("click", (e) => {
+            e.stopPropagation();
+            toggleAudioSplit();
         });
     }
 
@@ -1078,6 +1086,21 @@ function disableSplitScreen() {
         appState.hlsPlayer2.destroy();
         appState.hlsPlayer2 = null;
     }
+
+    // Restablecer audio dividido
+    if (appState.audioSplit) {
+        appState.audioSplit = false;
+        if (audioPanners.slot1 && audioPanners.slot1.pan) {
+            audioPanners.slot1.pan.setValueAtTime(0, audioCtx ? audioCtx.currentTime : 0);
+        }
+        if (audioPanners.slot2 && audioPanners.slot2.pan) {
+            audioPanners.slot2.pan.setValueAtTime(0, audioCtx ? audioCtx.currentTime : 0);
+        }
+        if (dom.btnAudioSplit) {
+            dom.btnAudioSplit.classList.remove("active-play");
+        }
+    }
+
     updateFullscreenButtonVisibility();
 }
 
@@ -1156,12 +1179,18 @@ function setMenuHidden(hidden) {
 
     if (hidden) {
         dom.eventsSection.classList.add("hidden");
+        if (dom.btnFullscreenToggle) {
+            dom.btnFullscreenToggle.textContent = "MOSTRAR MENÚ";
+        }
         // Desenfocar elemento actual para que el foco no interfiera
         if (activeFocusedElement) {
             activeFocusedElement.blur();
         }
     } else {
         dom.eventsSection.classList.remove("hidden");
+        if (dom.btnFullscreenToggle) {
+            dom.btnFullscreenToggle.textContent = "PANTALLA COMPLETA";
+        }
 
         // Recuperar el foco en el último botón activo o en el primero disponible
         setTimeout(() => {
@@ -1343,4 +1372,139 @@ function updateFullscreenButtonVisibility() {
 
     btn.style.display = "inline-block";
     rebuildSpatialIndexes();
+}
+
+// ── SISTEMA DE AUDIO DIVIDIDO (WEB AUDIO API) ──
+let audioCtx = null;
+let audioSources = {
+    slot1: null,
+    slot2: null
+};
+let audioPanners = {
+    slot1: null,
+    slot2: null
+};
+
+function initWebAudio() {
+    if (audioCtx) {
+        if (audioCtx.state === "suspended") {
+            audioCtx.resume();
+        }
+        return true;
+    }
+
+    try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+
+        const video1 = document.getElementById("tv-video-player-1");
+        const video2 = document.getElementById("tv-video-player-2");
+
+        if (video1 && !audioSources.slot1) {
+            audioSources.slot1 = audioCtx.createMediaElementSource(video1);
+            if (audioCtx.createStereoPanner) {
+                audioPanners.slot1 = audioCtx.createStereoPanner();
+            } else {
+                audioPanners.slot1 = audioCtx.createPanner();
+                audioPanners.slot1.panningModel = 'HRTF';
+            }
+            audioSources.slot1.connect(audioPanners.slot1);
+            audioPanners.slot1.connect(audioCtx.destination);
+            if (audioPanners.slot1.pan) {
+                audioPanners.slot1.pan.value = 0;
+            } else {
+                audioPanners.slot1.setPosition(0, 0, 0);
+            }
+        }
+
+        if (video2 && !audioSources.slot2) {
+            audioSources.slot2 = audioCtx.createMediaElementSource(video2);
+            if (audioCtx.createStereoPanner) {
+                audioPanners.slot2 = audioCtx.createStereoPanner();
+            } else {
+                audioPanners.slot2 = audioCtx.createPanner();
+                audioPanners.slot2.panningModel = 'HRTF';
+            }
+            audioSources.slot2.connect(audioPanners.slot2);
+            audioPanners.slot2.connect(audioCtx.destination);
+            if (audioPanners.slot2.pan) {
+                audioPanners.slot2.pan.value = 0;
+            } else {
+                audioPanners.slot2.setPosition(0, 0, 0);
+            }
+        }
+
+        console.log("Web Audio API inicializado correctamente.");
+        return true;
+    } catch (e) {
+        console.error("Error al inicializar Web Audio API:", e);
+        return false;
+    }
+}
+
+function toggleAudioSplit() {
+    if (!appState.splitMode) {
+        console.warn("Audio dividido solo disponible en modo pantalla partida.");
+        return;
+    }
+
+    const initialized = initWebAudio();
+    if (!initialized) return;
+
+    const video2 = document.getElementById("tv-video-player-2");
+    if (!video2) return;
+
+    appState.audioSplit = !appState.audioSplit;
+
+    if (appState.audioSplit) {
+        console.log("Activando audio dividido L/R...");
+        
+        if (audioPanners.slot1) {
+            if (audioPanners.slot1.pan) {
+                audioPanners.slot1.pan.setValueAtTime(-1, audioCtx.currentTime);
+            } else {
+                audioPanners.slot1.setPosition(-1, 0, 0);
+            }
+        }
+
+        if (audioPanners.slot2) {
+            if (audioPanners.slot2.pan) {
+                audioPanners.slot2.pan.setValueAtTime(1, audioCtx.currentTime);
+            } else {
+                audioPanners.slot2.setPosition(1, 0, 0);
+            }
+        }
+
+        // Des-silenciar el reproductor 2
+        video2.muted = false;
+
+        if (dom.btnAudioSplit) {
+            dom.btnAudioSplit.classList.add("active-play");
+        }
+    } else {
+        console.log("Desactivando audio dividido...");
+
+        if (audioPanners.slot1) {
+            if (audioPanners.slot1.pan) {
+                audioPanners.slot1.pan.setValueAtTime(0, audioCtx.currentTime);
+            } else {
+                audioPanners.slot1.setPosition(0, 0, 0);
+            }
+        }
+
+        if (audioPanners.slot2) {
+            if (audioPanners.slot2.pan) {
+                audioPanners.slot2.pan.setValueAtTime(0, audioCtx.currentTime);
+            } else {
+                audioPanners.slot2.setPosition(0, 0, 0);
+            }
+        }
+
+        // Volver a silenciar el reproductor 2
+        video2.muted = true;
+
+        if (dom.btnAudioSplit) {
+            dom.btnAudioSplit.classList.remove("active-play");
+        }
+    }
 }
