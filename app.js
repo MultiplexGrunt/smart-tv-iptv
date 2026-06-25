@@ -6,7 +6,7 @@
 const CONFIG = {
     EVENTS_JSON_URL: "https://streamtpday1.xyz/wc.json",
     LACANCHA_CALENDARIO_URL: "https://lacancha.tv/es/calendario",
-    EVENTS_REFRESH_MS: 60 * 1000,        // Actualizar lista de eventos cada 60s
+    EVENTS_REFRESH_MS: 30 * 1000,        // Actualizar lista de eventos cada 30s
     CORS_PROXY: "https://api.allorigins.win/raw?url="
 };
 
@@ -599,18 +599,42 @@ function isTvAztecaMatch(eventTitle, match) {
         ["colombia", "portugal"]
     ];
 
+    const isIndeterminate = (name) => {
+        if (!name) return true;
+        const n = name.toLowerCase();
+        return n.includes("confirmar") || n.includes("definir") || n.includes("tbd") || n.includes("pending") || n.includes("grupo") || n.includes("repechaje");
+    };
+
     for (const pair of groupMatches) {
         const p0 = translateAndNormalize(pair[0]);
         const p1 = translateAndNormalize(pair[1]);
 
-        // Coincide si al menos uno de los dos equipos del evento coincide con al menos uno de los equipos de la pareja
-        const match0 = (normA && (normA.includes(p0) || p0.includes(normA))) || 
-                       (normB && (normB.includes(p0) || p0.includes(normB)));
-        const match1 = (normA && (normA.includes(p1) || p1.includes(normA))) || 
-                       (normB && (normB.includes(p1) || p1.includes(normB)));
+        const matchHomeExact = normA && (normA.includes(p0) || p0.includes(normA));
+        const matchAwayExact = normB && (normB.includes(p1) || p1.includes(normB));
+        
+        const matchHomeCross = normA && (normA.includes(p1) || p1.includes(normA));
+        const matchAwayCross = normB && (normB.includes(p0) || p0.includes(normB));
 
-        if (match0 || match1) {
-            return true;
+        // Caso A: Ambos oponentes en el evento real están confirmados (no indeterminados)
+        if (!isIndeterminate(teamA) && !isIndeterminate(teamB)) {
+            // Deben coincidir ambos equipos (ya sea en orden directo o cruzado)
+            if ((matchHomeExact && matchAwayExact) || (matchHomeCross && matchAwayCross)) {
+                return true;
+            }
+        } 
+        // Caso B: El visitante del evento es indeterminado (ej: "México vs Por Confirmar")
+        else if (!isIndeterminate(teamA) && isIndeterminate(teamB)) {
+            // El local del evento debe coincidir con alguno de los dos de la pareja programada
+            if (matchHomeExact || matchHomeCross) {
+                return true;
+            }
+        }
+        // Caso C: El local del evento es indeterminado (ej: "Por Confirmar vs Sudáfrica")
+        else if (isIndeterminate(teamA) && !isIndeterminate(teamB)) {
+            // El visitante del evento debe coincidir con alguno de los dos de la pareja programada
+            if (matchAwayExact || matchAwayCross) {
+                return true;
+            }
         }
     }
 
@@ -704,11 +728,12 @@ function renderLiveEvents(events, container) {
                 headerTitleText = `${match.home_team} ${match.home_score}–${match.away_score} ${match.away_team}`;
             }
 
-            if (match.status === "live" || match.status === "in_play" || match.time_elapsed) {
+            // Priorizar status "finished" para evitar que time_elapsed residual muestre VIVO en partidos terminados
+            if (match.status === "finished" || match.status === "ended" || match.status === "complete") {
+                badgeHtml = `<span class="final-score-badge" style="margin-left: 5px; font-size: 7px; padding: 1px 4px;">FINAL</span>`;
+            } else if (match.status === "live" || match.status === "in_play" || match.time_elapsed) {
                 const elapsed = match.time_elapsed ? `${match.time_elapsed}'` : 'VIVO';
                 badgeHtml = `<span class="live-score-badge" style="margin-left: 5px; font-size: 7px; padding: 1px 4px;">🔴 ${elapsed}</span>`;
-            } else if (match.status === "finished") {
-                badgeHtml = `<span class="final-score-badge" style="margin-left: 5px; font-size: 7px; padding: 1px 4px;">FINAL</span>`;
             }
         }
 
