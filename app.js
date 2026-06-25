@@ -603,8 +603,15 @@ function isTvAztecaMatch(eventTitle, match) {
         const p0 = translateAndNormalize(pair[0]);
         const p1 = translateAndNormalize(pair[1]);
 
-        const matchDirect = (p0 === normA && p1 === normB) || (p0 === normB && p1 === normA);
-        if (matchDirect) return true;
+        // Coincide si al menos uno de los dos equipos del evento coincide con al menos uno de los equipos de la pareja
+        const match0 = (normA && (normA.includes(p0) || p0.includes(normA))) || 
+                       (normB && (normB.includes(p0) || p0.includes(normB)));
+        const match1 = (normA && (normA.includes(p1) || p1.includes(normA))) || 
+                       (normB && (normB.includes(p1) || p1.includes(normB)));
+
+        if (match0 || match1) {
+            return true;
+        }
     }
 
     return false;
