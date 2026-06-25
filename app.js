@@ -544,7 +544,7 @@ function isTvAztecaMatch(eventTitle, match) {
         }
     }
 
-    // 2. Fase de Grupos: lista de partidos asignados a TV Azteca
+    // 2. Parsear los equipos del título del evento
     const splitters = [" vs ", " - ", " v "];
     let teamA = "";
     let teamB = "";
@@ -562,8 +562,17 @@ function isTvAztecaMatch(eventTitle, match) {
     const normA = translateAndNormalize(teamA);
     const normB = translateAndNormalize(teamB);
 
+    // 3. Equipos que SIEMPRE tienen transmisión en TV Azteca (todos sus partidos)
+    const alwaysAztecaTeams = ["mexico"];
+    for (const team of alwaysAztecaTeams) {
+        if ((normA && (normA.includes(team) || team.includes(normA))) ||
+            (normB && (normB.includes(team) || team.includes(normB)))) {
+            return true;
+        }
+    }
+
+    // 4. Fase de Grupos: lista de partidos específicos asignados a TV Azteca
     const groupMatches = [
-        ["mexico", "sudafrica"],
         ["usa", "paraguay"],
         ["estados unidos", "paraguay"],
         ["brazil", "morocco"],
@@ -574,8 +583,6 @@ function isTvAztecaMatch(eventTitle, match) {
         ["argentina", "argelia"],
         ["england", "croatia"],
         ["inglaterra", "croacia"],
-        ["mexico", "south korea"],
-        ["mexico", "corea del sur"],
         ["brazil", "haiti"],
         ["brasil", "haiti"],
         ["netherlands", "repechaje uefa"],
@@ -589,7 +596,6 @@ function isTvAztecaMatch(eventTitle, match) {
         ["colombia", "rd congo"],
         ["colombia", "RD del congo"],
         ["colombia", "republica del congo"],
-        ["repechaje uefa", "mexico"],
         ["ecuador", "germany"],
         ["ecuador", "alemania"],
         ["uruguay", "spain"],
@@ -622,16 +628,14 @@ function isTvAztecaMatch(eventTitle, match) {
                 return true;
             }
         } 
-        // Caso B: El visitante del evento es indeterminado (ej: "México vs Por Confirmar")
+        // Caso B: El visitante del evento es indeterminado (ej: "Colombia vs Por Confirmar")
         else if (!isIndeterminate(teamA) && isIndeterminate(teamB)) {
-            // El local del evento debe coincidir con alguno de los dos de la pareja programada
             if (matchHomeExact || matchHomeCross) {
                 return true;
             }
         }
         // Caso C: El local del evento es indeterminado (ej: "Por Confirmar vs Sudáfrica")
         else if (isIndeterminate(teamA) && !isIndeterminate(teamB)) {
-            // El visitante del evento debe coincidir con alguno de los dos de la pareja programada
             if (matchAwayExact || matchAwayCross) {
                 return true;
             }
@@ -640,6 +644,7 @@ function isTvAztecaMatch(eventTitle, match) {
 
     return false;
 }
+
 
 /**
  * Renderiza la lista de eventos como columnas horizontales.
