@@ -639,7 +639,7 @@ function renderLiveEvents(events, container) {
         // Si es transmitido por TV Azteca, inyectar como segunda opción (índice 1)
         if (isTvAztecaMatch(ev.title, match)) {
             const aztecaLink = {
-                url: "https://www.tvazteca.com/aztecadeportes/azteca-deportes-network-en-vivo",
+                url: "https://www.tvazteca.com/aztecadeportes/mundial-2026/envivo",
                 server: "Azteca 7 (TV Azteca)",
                 quality: { label: "HD", type: "hd" },
                 lang: { code: "es" }
@@ -955,7 +955,7 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
     appState.slotsData[slotId] = { url, title, group, forceIframe };
 
     // Interceptar señal de TV Azteca para cargarla en un iframe personalizado y limpio
-    const isAztecaUrl = url.includes("tvazteca.com/aztecadeportes/azteca-deportes-network-en-vivo");
+    const isAztecaUrl = url.includes("tvazteca.com/aztecadeportes/mundial-2026/envivo");
     let targetUrl = url;
     let actualForceIframe = forceIframe;
     let modifiedAztecaHtml = "";
