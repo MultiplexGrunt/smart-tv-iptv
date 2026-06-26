@@ -26,8 +26,12 @@ let appState = {
     hlsPlayer1: null,
     hlsPlayer2: null,
     hlsPlayerPip: null,
-    menuHidden: false,
-    activeBtn: null,
+    menuHidden: false,          // Indica si la barra lateral y panel de señales están ocultos
+    activeChannelRow: null,     // Fila de canal seleccionada actualmente en la barra lateral
+    activeSignalBtn: null,      // Botón de señal/servidor activo actualmente
+    currentStreams: [],         // Canales de streaming disponibles para el canal actual
+    currentChannelName: "",
+    currentChannelGroup: "",
     splitMode: false,
     pipMode: false,
     pipCorner: "pip-top-left",
@@ -42,8 +46,10 @@ let appState = {
 
 // Elementos DOM
 const dom = {
-    eventsSection: document.getElementById("tv-events-section"),
+    sidebarChannels: document.getElementById("tv-sidebar-channels"),
     canalesList: document.getElementById("canales-list"),
+    signalsPanel: document.getElementById("tv-signals-panel"),
+    signalsList: document.getElementById("tv-signals-list"),
     playerSection: document.getElementById("tv-player-section"),
     playerWrapper: document.getElementById("player-wrapper"),
     playerSlotPip: document.getElementById("player-slot-pip"),
@@ -73,12 +79,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Auto-reproducir primer canal por defecto
     setTimeout(() => {
-        const firstBtn = dom.canalesList.querySelector(".event-stream-btn");
-        if (firstBtn) {
-            setFocus(firstBtn);
-            firstBtn.click();
+        const firstChannelRow = dom.canalesList.querySelector(".tv-channel-item-row");
+        if (firstChannelRow) {
+            setFocus(firstChannelRow);
+            selectChannel(firstChannelRow);
         }
-    }, 300);
+    }, 400);
 });
 
 // ── RELOJ DEL SISTEMA ──
@@ -93,48 +99,96 @@ function initClock() {
     setInterval(updateClock, 60000);
 }
 
-// ── RENDER DE CANALES EN LA GRID SUPERIOR ──
+// ── RENDER DE CANALES EN LA BARRA LATERAL VERTICAL ──
 function renderTvChannels() {
     const listEl = dom.canalesList;
     if (!listEl) return;
 
     const html = CONFIG.TV_CHANNELS.map(ch => {
         return `
-            <div class="event-column">
-                <div class="event-column-title" style="display: flex; align-items: center; gap: 8px;">
-                    <img src="${ch.logo}" alt="${ch.name}" style="width: 18px; height: 18px; object-fit: contain; border-radius: 2px; background: rgba(255,255,255,0.05); padding: 1px;" onerror="this.style.display='none'">
-                    <span class="event-title-text" style="font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;" title="${ch.name}">${ch.name}</span>
-                </div>
-                <div class="event-links-list">
-                    <div class="stream-row-container">
-                        <button class="event-stream-btn focusable"
-                            data-channel-id="${ch.id}"
-                            data-stream-name="${ch.name}"
-                            data-stream-group="${ch.category}"
-                            tabindex="0">
-                            <span>📺 Reproducir</span>
-                        </button>
-                        <button class="btn-action-split focusable"
-                            data-channel-id="${ch.id}"
-                            data-stream-name="${ch.name}"
-                            data-stream-group="${ch.category}"
-                            tabindex="0"
-                            title="Pantalla Partida">📺</button>
-                        <button class="btn-action-pip focusable"
-                            data-channel-id="${ch.id}"
-                            data-stream-name="${ch.name}"
-                            data-stream-group="${ch.category}"
-                            tabindex="0"
-                            title="PiP Flotante">🖼️</button>
-                    </div>
-                </div>
-            </div>`;
+            <button class="tv-channel-item-row focusable"
+                data-channel-id="${ch.id}"
+                data-channel-name="${ch.name}"
+                data-channel-group="${ch.category}">
+                <img src="${ch.logo}" alt="${ch.name}" onerror="this.style.display='none'">
+                <span class="channel-name-txt">${ch.name}</span>
+            </button>`;
     }).join("");
 
     listEl.innerHTML = html;
 }
 
-// ── CONFIGURACIÓN DE EVENTOS GENERALES ──
+// ── SELECCIÓN Y EXTRACCIÓN DEL CANAL ──
+async function selectChannel(channelRowEl) {
+    if (!channelRowEl) return;
+
+    const channelId = channelRowEl.dataset.channelId;
+    const name = channelRowEl.dataset.channelName;
+    const group = channelRowEl.dataset.channelGroup;
+
+    // Actualizar estados visuales de la fila activa
+    if (appState.activeChannelRow) {
+        appState.activeChannelRow.classList.remove("active-play");
+    }
+    appState.activeChannelRow = channelRowEl;
+    channelRowEl.classList.add("active-play");
+
+    appState.currentChannelName = name;
+    appState.currentChannelGroup = group;
+
+    // Mostrar loader de video e info preliminar
+    dom.playerLoader.style.display = "flex";
+    dom.playingTitle.textContent = `Descifrando señal de ${name}...`;
+    dom.playingGroup.textContent = group;
+
+    // Ocultar panel de señales previo
+    dom.signalsPanel.classList.add("hidden");
+    dom.signalsList.innerHTML = "";
+
+    // Obtener las múltiples transmisiones descifradas desde el backend
+    const streams = await fetchDecryptedStreams(channelId);
+    dom.playerLoader.style.display = "none";
+
+    if (streams && streams.length > 0) {
+        appState.currentStreams = streams;
+        renderSignalsList(streams);
+
+        // Auto-reproducir la primera opción disponible
+        const firstOptBtn = dom.signalsList.querySelector(".tv-signal-opt-btn");
+        if (firstOptBtn) {
+            firstOptBtn.click();
+        }
+    } else {
+        dom.playingTitle.textContent = "Error al conectar con la señal";
+        dom.playingGroup.textContent = "El canal no se encuentra activo o no se pudieron extraer transmisiones.";
+        dom.playingGroup.style.color = "#ff4d4d";
+    }
+}
+
+// ── RENDER DE OPCIONES DE SEÑAL / SERVIDORES EN PANEL FLOTANTE ──
+function renderSignalsList(streams) {
+    const listEl = dom.signalsList;
+    if (!listEl) return;
+
+    const html = streams.map((st, index) => {
+        const isIframe = st.tipo === 1;
+        const typeBadge = isIframe ? `<span class="signal-type-badge iframe">Iframe</span>` : `<span class="signal-type-badge hls">Directo</span>`;
+        return `
+            <button class="tv-signal-opt-btn focusable"
+                data-stream-url="${encodeURIComponent(st.url)}"
+                data-stream-type="${st.tipo}"
+                data-stream-index="${index}">
+                <span>Opción ${index + 1}</span>
+                ${typeBadge}
+            </button>`;
+    }).join("");
+
+    listEl.innerHTML = html;
+    dom.signalsPanel.classList.remove("hidden");
+    rebuildSpatialIndexes();
+}
+
+// ── CONFIGURACIÓN DE EVENTOS ──
 function setupEventListeners() {
     const mainVideo = document.getElementById("tv-video-player-1");
     if (mainVideo) {
@@ -147,12 +201,12 @@ function setupEventListeners() {
         mainVideo.addEventListener("error", (e) => {
             console.error("Error en reproducción:", e);
             dom.playerLoader.style.display = "none";
-            dom.playingGroup.textContent = "Error: La señal no se puede reproducir o se encuentra inactiva.";
+            dom.playingGroup.textContent = "Error: Este servidor no responde. Intente otra opción de señal.";
             dom.playingGroup.style.color = "#ff4d4d";
         });
     }
 
-    // Botones de cerrar ranuras
+    // Botones de cerrar ranuras / fullscreen / audio split
     if (dom.closeBtn1) dom.closeBtn1.addEventListener("click", (e) => { e.stopPropagation(); handleCloseSlot1(); });
     if (dom.closeBtn2) dom.closeBtn2.addEventListener("click", (e) => { e.stopPropagation(); handleCloseSlot2(); });
     if (dom.closeBtnPip) dom.closeBtnPip.addEventListener("click", (e) => { e.stopPropagation(); handleCloseSlotPip(); });
@@ -160,6 +214,52 @@ function setupEventListeners() {
     if (dom.btnResizeSlotPip) dom.btnResizeSlotPip.addEventListener("click", (e) => { e.stopPropagation(); cyclePipSize(); });
     if (dom.btnFullscreenToggle) dom.btnFullscreenToggle.addEventListener("click", (e) => { e.stopPropagation(); setMenuHidden(!appState.menuHidden); });
     if (dom.btnAudioSplit) dom.btnAudioSplit.addEventListener("click", (e) => { e.stopPropagation(); toggleAudioSplit(); });
+
+    // Eventos de click en la barra de canales
+    dom.canalesList.addEventListener("click", (e) => {
+        const row = e.target.closest(".tv-channel-item-row");
+        if (row) {
+            e.stopPropagation();
+            selectChannel(row);
+        }
+    });
+
+    // Foco en la barra de canales
+    dom.canalesList.addEventListener("focusin", (e) => {
+        const row = e.target.closest(".tv-channel-item-row");
+        if (row) {
+            activeFocusedElement = row;
+        }
+    });
+
+    // Eventos de click en el panel de señales
+    dom.signalsList.addEventListener("click", (e) => {
+        const btn = e.target.closest(".tv-signal-opt-btn");
+        if (btn) {
+            e.stopPropagation();
+            const url = decodeURIComponent(btn.dataset.streamUrl);
+            const tipo = parseInt(btn.dataset.streamType, 10);
+            const index = btn.dataset.streamIndex;
+
+            if (appState.activeSignalBtn) {
+                appState.activeSignalBtn.classList.remove("active-play");
+            }
+            appState.activeSignalBtn = btn;
+            btn.classList.add("active-play");
+
+            const forceIframe = tipo === 1;
+            const title = `${appState.currentChannelName} (Opción ${parseInt(index, 10) + 1})`;
+            playStream(url, title, appState.currentChannelGroup, forceIframe);
+        }
+    });
+
+    // Foco en el panel de señales
+    dom.signalsList.addEventListener("focusin", (e) => {
+        const btn = e.target.closest(".tv-signal-opt-btn");
+        if (btn) {
+            activeFocusedElement = btn;
+        }
+    });
 
     // Drag del PiP
     if (dom.pipControlHeader) {
@@ -257,104 +357,15 @@ function setupEventListeners() {
     // Configurar eventos del divisor
     setupSplitResizerEvents();
 
-    // Eventos Click en Botones de Canales
-    dom.canalesList.querySelectorAll(".event-column").forEach(col => {
-        // 1. Botón Reproducir Normal
-        col.querySelectorAll(".event-stream-btn").forEach(btn => {
-            btn.addEventListener("click", async (e) => {
-                e.stopPropagation();
-                const channelId = btn.dataset.channelId;
-                const name = btn.dataset.streamName;
-                const group = btn.dataset.streamGroup;
-
-                // Marcar botón activo
-                if (appState.activeBtn) {
-                    appState.activeBtn.classList.remove("active-play");
-                }
-                appState.activeBtn = btn;
-                btn.classList.add("active-play");
-
-                // Mostrar cargando
-                dom.playerLoader.style.display = "flex";
-                dom.playingTitle.textContent = `Extrayendo señal: ${name}...`;
-
-                const streams = await fetchDecryptedStreams(channelId);
-                dom.playerLoader.style.display = "none";
-
-                if (streams && streams.length > 0) {
-                    // Seleccionar la mejor señal
-                    const target = selectBestStream(streams);
-                    playStream(target.url, name, group, target.forceIframe);
-                } else {
-                    dom.playingTitle.textContent = "Error de conexión";
-                    dom.playingGroup.textContent = "No se pudieron obtener señales en vivo para este canal.";
-                    dom.playingGroup.style.color = "#ff4d4d";
-                }
-            });
-
-            btn.addEventListener("focus", () => {
-                highlightColumn(col);
-                activeFocusedElement = btn;
-            });
+    // Eventos Click en botón de volver a eventos
+    const btnGotoEvents = document.getElementById("btn-goto-events");
+    if (btnGotoEvents) {
+        btnGotoEvents.addEventListener("focus", () => {
+            activeFocusedElement = btnGotoEvents;
         });
-
-        // 2. Botón Pantalla Partida (Split)
-        col.querySelectorAll(".btn-action-split").forEach(btn => {
-            btn.addEventListener("click", async (e) => {
-                e.stopPropagation();
-                const channelId = btn.dataset.channelId;
-                const name = btn.dataset.streamName;
-                const group = btn.dataset.streamGroup;
-
-                dom.playerLoader.style.display = "flex";
-                const streams = await fetchDecryptedStreams(channelId);
-                dom.playerLoader.style.display = "none";
-
-                if (streams && streams.length > 0) {
-                    const target = selectBestStream(streams);
-                    enableSplitScreen(target.url, name, group, target.forceIframe);
-                }
-            });
-
-            btn.addEventListener("focus", () => {
-                highlightColumn(col);
-                activeFocusedElement = btn;
-            });
-        });
-
-        // 3. Botón PiP
-        col.querySelectorAll(".btn-action-pip").forEach(btn => {
-            btn.addEventListener("click", async (e) => {
-                e.stopPropagation();
-                const channelId = btn.dataset.channelId;
-                const name = btn.dataset.streamName;
-                const group = btn.dataset.streamGroup;
-
-                dom.playerLoader.style.display = "flex";
-                const streams = await fetchDecryptedStreams(channelId);
-                dom.playerLoader.style.display = "none";
-
-                if (streams && streams.length > 0) {
-                    const target = selectBestStream(streams);
-                    enablePipScreen(target.url, name, group, target.forceIframe);
-                }
-            });
-
-            btn.addEventListener("focus", () => {
-                highlightColumn(col);
-                activeFocusedElement = btn;
-            });
-        });
-    });
-
-    function highlightColumn(activeCol) {
-        dom.canalesList.querySelectorAll(".event-column").forEach(col => {
-            col.classList.remove("has-focused");
-        });
-        activeCol.classList.add("has-focused");
-        ensureColumnVisible(activeCol);
     }
 
+    // Monitorear pantalla completa del navegador
     const syncFullscreen = () => {
         const isBrowserFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
         setMenuHidden(isBrowserFullscreen);
@@ -367,7 +378,7 @@ function setupEventListeners() {
     document.addEventListener("keydown", handleKeyDown);
 }
 
-// ── LLAMADA AL BACKEND DE EXTRACCIÓN SEGURO ──
+// ── LLAMADA AL BACKEND DE EXTRACCIÓN ──
 async function fetchDecryptedStreams(channelId) {
     try {
         const res = await fetch(`/api/extract-ofutbol?id=${channelId}`);
@@ -383,37 +394,7 @@ async function fetchDecryptedStreams(channelId) {
     }
 }
 
-// Seleccionar el primer stream directo (.m3u8) que use HLS (tipo 3). 
-// Si no hay ninguno, caer en el iframe (tipo 1).
-function selectBestStream(streams) {
-    // Tipo 3: HLS .m3u8 directo
-    const directStream = streams.find(s => s.tipo === 3 && s.url);
-    if (directStream) {
-        return { url: directStream.url, forceIframe: false };
-    }
-    // Tipo 1: Iframe/Página externa
-    const iframeStream = streams.find(s => s.tipo === 1 && s.url);
-    if (iframeStream) {
-        return { url: iframeStream.url, forceIframe: true };
-    }
-    // Fallback absoluto al primero que exista
-    const fallback = streams[0];
-    return { url: fallback.url, forceIframe: fallback.tipo === 1 };
-}
-
-function ensureColumnVisible(col) {
-    const container = dom.canalesList;
-    const containerRect = container.getBoundingClientRect();
-    const colRect = col.getBoundingClientRect();
-
-    if (colRect.left < containerRect.left) {
-        container.scrollLeft -= (containerRect.left - colRect.left) + 20;
-    } else if (colRect.right > containerRect.right) {
-        container.scrollLeft += (colRect.right - containerRect.right) + 20;
-    }
-}
-
-// Clase cargadora personalizada de HLS para redirigir peticiones a través del proxy CORS
+// Clase cargadora de HLS que redirecciona a través del proxy CORS
 class ProxyLoader extends Hls.DefaultConfig.loader {
     constructor(config) { super(config); }
     load(context, config, callbacks) {
@@ -435,7 +416,7 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
     }
 }
 
-// ── REPRODUCTOR DE VIDEO ABSTRACTO POR RANURA (SLOT) ──
+// ── REPRODUCTOR DE VIDEO EN RANURA (SLOT) ──
 async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = false) {
     console.log(`[Slot ${slotId}] Reproduciendo: ${title} -> ${url} (forceIframe=${forceIframe})`);
 
@@ -464,10 +445,9 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
     videoEl.removeAttribute("src");
     try { videoEl.load(); } catch (e) { }
 
-    // Recrear elemento video para evitar bugs de Web Audio
+    // Recrear elemento video para Web Audio API
     const newVideoEl = document.createElement("video");
     newVideoEl.id = `tv-video-player-${slotId}`;
-    newVideoEl.controls = true;
     newVideoEl.autoplay = true;
     newVideoEl.crossOrigin = "anonymous";
     if (videoEl.className) newVideoEl.className = videoEl.className;
@@ -533,7 +513,6 @@ function playStream(url, title, group = "Live TV", forceIframe = false) {
     stopSlotPlayer("pip");
 
     playStreamInSlot("1", url, title, group, forceIframe, false);
-    syncActiveButtonsInMenu();
     updateSlotsLayout();
 }
 
@@ -550,18 +529,16 @@ function stopMainPlayer() {
     stopSlotPlayer("pip");
 
     dom.playingTitle.textContent = "Ningún canal seleccionado";
-    dom.playingGroup.textContent = "Elige una transmisión de la parte superior para comenzar";
+    dom.playingGroup.textContent = "Elige una transmisión para comenzar";
     dom.playingGroup.style.color = "var(--text-muted)";
     dom.playerLoader.style.display = "none";
 
-    syncActiveButtonsInMenu();
     updateSlotsLayout();
 }
 
 function enableSplitScreen(url, title, group, forceIframe) {
     appState.splitMode = true;
     playStreamInSlot("2", url, title, group, forceIframe, true);
-    syncActiveButtonsInMenu();
     updateSlotsLayout();
 }
 
@@ -578,14 +555,12 @@ function disableSplitScreen() {
         if (dom.btnAudioSplit) dom.btnAudioSplit.classList.remove("active-play");
     }
 
-    syncActiveButtonsInMenu();
     updateSlotsLayout();
 }
 
 function enablePipScreen(url, title, group, forceIframe) {
     appState.pipMode = true;
     playStreamInSlot("pip", url, title, group, forceIframe, true);
-    syncActiveButtonsInMenu();
     updateSlotsLayout();
 }
 
@@ -654,7 +629,6 @@ function disablePipScreen() {
     appState.pipMode = false;
     stopSlotPlayer("pip");
     appState.slotsData["pip"] = null;
-    syncActiveButtonsInMenu();
     updateSlotsLayout();
 }
 
@@ -683,7 +657,6 @@ function handleCloseSlot1() {
         stopMainPlayer();
         return;
     }
-    syncActiveButtonsInMenu();
     updateSlotsLayout();
 }
 
@@ -699,7 +672,6 @@ function handleCloseSlot2() {
         appState.slotsData["2"] = null;
         appState.splitMode = false;
     }
-    syncActiveButtonsInMenu();
     updateSlotsLayout();
 }
 
@@ -707,7 +679,6 @@ function handleCloseSlotPip() {
     stopSlotPlayer("pip");
     appState.slotsData["pip"] = null;
     appState.pipMode = false;
-    syncActiveButtonsInMenu();
     updateSlotsLayout();
 }
 
@@ -812,29 +783,11 @@ function updateSlotsLayout() {
         if (mainSlot) dom.playingGroup.textContent = mainSlot.group;
     } else {
         dom.playingTitle.textContent = "Ningún canal seleccionado";
-        dom.playingGroup.textContent = "Elige una transmisión de la parte superior para comenzar";
+        dom.playingGroup.textContent = "Elige una transmisión para comenzar";
     }
 
     if (dom.btnFullscreenToggle) dom.btnFullscreenToggle.style.display = "inline-block";
     rebuildSpatialIndexes();
-}
-
-function syncActiveButtonsInMenu() {
-    const container = dom.canalesList;
-    if (!container) return;
-
-    const url1 = appState.slotsData["1"] ? appState.slotsData["1"].url : appState.currentPlayingUrl;
-    const url2 = appState.slotsData["2"] ? appState.slotsData["2"].url : null;
-    const urlPip = appState.slotsData["pip"] ? appState.slotsData["pip"].url : null;
-
-    container.querySelectorAll(".event-stream-btn").forEach(btn => {
-        // En nuestro caso, los botones no tienen url en dataset directos, pero podemos comparar con el id activo si los guardamos.
-        // Dado que se extraen dinámicamente, podemos guardar el channelId activo en el appState.
-        // Pero para simplificar, usaremos los atributos del botón.
-        if (url1 && btn.classList.contains("active-play")) {
-            appState.activeBtn = btn;
-        }
-    });
 }
 
 function requestBrowserFullscreen() {
@@ -848,26 +801,29 @@ function exitBrowserFullscreen() {
     if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
 }
 
+// ── CONTROL DE VISIBILIDAD DE MENÚS (MODO CINE / PANTALLA COMPLETA) ──
 function setMenuHidden(hidden) {
     if (appState.menuHidden === hidden) return;
     appState.menuHidden = hidden;
 
     if (hidden) {
-        dom.eventsSection.classList.add("hidden");
-        if (dom.btnFullscreenToggle) dom.btnFullscreenToggle.textContent = "📺";
+        // Ocultar barra de canales izquierda y panel de señales flotante
+        dom.sidebarChannels.classList.add("hidden");
+        dom.signalsPanel.classList.add("hidden");
         if (activeFocusedElement) activeFocusedElement.blur();
 
         const isBrowserFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
         if (!isBrowserFullscreen) requestBrowserFullscreen();
     } else {
-        dom.eventsSection.classList.remove("hidden");
-        if (dom.btnFullscreenToggle) dom.btnFullscreenToggle.textContent = "⛶";
+        // Mostrar de nuevo menús
+        dom.sidebarChannels.classList.remove("hidden");
+        if (appState.currentStreams && appState.currentStreams.length > 0) {
+            dom.signalsPanel.classList.remove("hidden");
+        }
+
         setTimeout(() => {
-            if (appState.activeBtn) setFocus(appState.activeBtn);
-            else {
-                const firstBtn = dom.canalesList.querySelector(".event-stream-btn");
-                if (firstBtn) setFocus(firstBtn);
-            }
+            if (activeFocusedElement) setFocus(activeFocusedElement);
+            else if (appState.activeChannelRow) setFocus(appState.activeChannelRow);
         }, 150);
 
         const isBrowserFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
@@ -875,7 +831,7 @@ function setMenuHidden(hidden) {
     }
 }
 
-// ── NAVEGACIÓN D-PAD ──
+// ── GESTIÓN DE FOCO Y NAVEGACIÓN D-PAD ──
 let activeFocusedElement = null;
 let focusableElements = [];
 
@@ -919,8 +875,9 @@ function handleKeyDown(e) {
         }
     }
 
+    // Si los menús están ocultos, cualquier interacción los vuelve a mostrar
     if (appState.menuHidden) {
-        if (["ArrowUp", "ArrowDown", "Escape", "Backspace", "Enter"].includes(key)) {
+        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Escape", "Backspace", "Enter"].includes(key)) {
             e.preventDefault();
             setMenuHidden(false);
             return;
@@ -929,19 +886,32 @@ function handleKeyDown(e) {
 
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key)) {
         e.preventDefault();
-
-        // Ocultar menú si estamos al final
-        if (key === "ArrowDown" && activeFocusedElement) {
-            const row = activeFocusedElement.closest(".stream-row-container");
-            if (row) {
-                const listContainer = row.closest(".event-links-list");
-                if (listContainer) {
-                    const rows = Array.from(listContainer.querySelectorAll(".stream-row-container"));
-                    if (rows.indexOf(row) === rows.length - 1) {
-                        setMenuHidden(true);
-                        return;
-                    }
+        
+        // Comportamientos especiales para D-pad en layouts específicos
+        if (activeFocusedElement) {
+            // 1. Desde el panel de señales hacia la izquierda regresamos a la barra de canales
+            const isSignalBtn = activeFocusedElement.classList.contains("tv-signal-opt-btn");
+            if (key === "ArrowLeft" && isSignalBtn) {
+                if (appState.activeChannelRow) {
+                    setFocus(appState.activeChannelRow);
+                } else {
+                    const firstRow = dom.canalesList.querySelector(".tv-channel-item-row");
+                    if (firstRow) setFocus(firstRow);
                 }
+                return;
+            }
+
+            // 2. Desde la barra de canales hacia la derecha nos movemos al panel de señales
+            const isChannelRow = activeFocusedElement.classList.contains("tv-channel-item-row") || activeFocusedElement.id === "btn-goto-events";
+            if (key === "ArrowRight" && isChannelRow) {
+                const activeSignal = dom.signalsList.querySelector(".active-play") || dom.signalsList.querySelector(".tv-signal-opt-btn");
+                if (activeSignal) {
+                    setFocus(activeSignal);
+                } else {
+                    // Si no hay señales cargadas, ocultamos la barra
+                    setMenuHidden(true);
+                }
+                return;
             }
         }
 
@@ -954,8 +924,12 @@ function handleKeyDown(e) {
         }
     } else if (key === "Backspace" || key === "Escape") {
         e.preventDefault();
-        if (appState.pipMode && activeFocusedElement === dom.playerSlotPip) disablePipScreen();
-        else setMenuHidden(!appState.menuHidden);
+        if (appState.pipMode && activeFocusedElement === dom.playerSlotPip) {
+            disablePipScreen();
+        } else {
+            // Ocultar/mostrar paneles
+            setMenuHidden(!appState.menuHidden);
+        }
     }
 }
 
@@ -999,6 +973,7 @@ function navigateSpatial(direction) {
             distSecundaria = Math.abs(dy);
         }
 
+        // Ponderación para priorizar alineación geométrica directa
         const score = distPrincipal + (distSecundaria * 2.8);
         if (score < bestScore) {
             bestScore = score;
@@ -1151,6 +1126,7 @@ function setupSplitResizerEvents() {
         }
     };
 
+    let isDraggingResizer = false;
     resizer.addEventListener("mousedown", startDrag);
     resizer.addEventListener("touchstart", startDrag);
     document.addEventListener("mousemove", doDrag);

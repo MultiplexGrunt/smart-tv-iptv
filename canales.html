@@ -21,44 +21,54 @@
 
     <div class="tv-app-container">
 
-        <!-- Botonera y Reloj Flotante Global (Encima de todo) -->
-        <div class="header-status" id="header-status-global">
+        <!-- Botonera y Reloj Flotante Global (Encima de todo en la esquina derecha) -->
+        <div class="channels-page-header" id="header-status-global">
             <button class="btn-fullscreen focusable" id="btn-fullscreen-toggle" tabindex="0" title="Alternar Menú / Pantalla Completa">⛶</button>
             <button class="btn-audio-split focusable" id="btn-audio-split" tabindex="0" title="Audio Dividido (Auriculares L/R)">🎧</button>
-            <a href="index.html" class="btn-channels-link focusable" id="btn-goto-events" tabindex="0" title="Ir a Eventos Deportivos" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">⚽ Eventos</a>
             <div class="tv-clock" id="system-clock">00:00</div>
         </div>
 
-        <!-- ── PANEL DE CANALES SUPERIOR (30% DE LA PANTALLA) ── -->
-        <header class="tv-events-section" id="tv-events-section">
+        <!-- ── BARRA LATERAL IZQUIERDA: LISTADO DE CANALES (320px de ancho) ── -->
+        <aside class="tv-sidebar-channels" id="tv-sidebar-channels">
             <div class="header-top-bar">
                 <div class="tv-brand">
                     <span class="brand-glow"></span>
                     <span class="brand-title">GrunTV</span>
-                    <span class="brand-subtitle">TV Canales 24/7</span>
+                    <span class="brand-subtitle">IPTV 24/7</span>
                 </div>
             </div>
 
-            <!-- Contenedor con scroll horizontal de los canales -->
-            <div class="events-columns-wrapper" id="canales-list">
+            <!-- Botón de regreso a eventos de fútbol -->
+            <a href="index.html" class="tv-channel-item-row focusable" id="btn-goto-events" tabindex="0" style="background: rgba(255, 140, 0, 0.1); border-color: rgba(255, 140, 0, 0.25); text-decoration: none; justify-content: center; height: auto; padding: 12px 14px;">
+                <span class="channel-name-txt" style="text-align: center; color: var(--primary);">⚽ Volver a Eventos</span>
+            </a>
+
+            <!-- Contenedor vertical de canales con scroll vertical -->
+            <div class="tv-channels-vertical-list" id="canales-list">
                 <div class="loading-state">
                     <div class="spinner"></div>
-                    <p style="font-size:12px;margin-top:5px">Cargando canales de televisión...</p>
+                    <p style="font-size:11px;margin-top:5px">Cargando canales...</p>
                 </div>
             </div>
-        </header>
+        </aside>
 
-        <!-- ── REPRODUCTOR DE VIDEO INFERIOR (70% DE LA PANTALLA) ── -->
-        <section class="tv-player-section" id="tv-player-section">
+        <!-- ── PANEL FLOTANTE DE OPCIONES DE SEÑALES / SERVIDORES (Inferior Derecha) ── -->
+        <div class="tv-signals-panel-float hidden" id="tv-signals-panel">
+            <h4><i class="far fa-satellite-dish"></i> Opciones de Señal</h4>
+            <div class="tv-signals-buttons-grid" id="tv-signals-list">
+                <!-- Se inyectarán los botones dinámicamente -->
+            </div>
+        </div>
+
+        <!-- ── REPRODUCTOR DE VIDEO AL FONDO (100% de la pantalla) ── -->
+        <section class="tv-player-full" id="tv-player-section">
             <div class="player-wrapper" id="player-wrapper">
 
                 <!-- RANURA 1: Principal / Izquierda -->
                 <div class="player-slot active-slot" id="player-slot-1">
-                    <video id="tv-video-player-1" controls autoplay crossorigin="anonymous"></video>
+                    <video id="tv-video-player-1" autoplay crossorigin="anonymous"></video>
                     <iframe id="tv-iframe-player-1" allow="autoplay; encrypted-media; picture-in-picture"
                         allowfullscreen></iframe>
-                    <button class="slot-close-btn focusable" id="btn-close-slot-1" tabindex="0"
-                        title="Detener reproducción">×</button>
                 </div>
 
                 <!-- DIVISOR ARRASTRABLE PARA PANTALLA PARTIDA -->
@@ -68,12 +78,9 @@
 
                 <!-- RANURA 2: Secundaria / Derecha (Pantalla Partida) -->
                 <div class="player-slot" id="player-slot-2" style="display: none;">
-                    <video id="tv-video-player-2" controls autoplay crossorigin="anonymous"></video>
+                    <video id="tv-video-player-2" autoplay crossorigin="anonymous"></video>
                     <iframe id="tv-iframe-player-2" allow="autoplay; encrypted-media; picture-in-picture"
                         allowfullscreen></iframe>
-                    <div class="slot-badge">PANTALLA 2</div>
-                    <button class="slot-close-btn focusable" id="btn-close-slot-2" tabindex="0"
-                        title="Cerrar pantalla partida">×</button>
                 </div>
 
                 <!-- RANURA PiP: Flotante (Esquinas) -->
@@ -101,13 +108,13 @@
                 <!-- Overlay de información del canal reproduciendo -->
                 <div class="player-info-overlay" id="player-info">
                     <h2 id="playing-channel-title">Ningún canal seleccionado</h2>
-                    <p id="playing-channel-group">Elige una transmisión de la parte superior para comenzar</p>
+                    <p id="playing-channel-group">Elige una transmisión para comenzar</p>
                 </div>
 
                 <!-- Indicador de carga -->
                 <div class="player-loader" id="player-loader" style="display: none;">
                     <div class="spinner"></div>
-                    <p>Conectando con la señal en vivo...</p>
+                    <p style="font-size:12px; font-weight:600">Sincronizando señal en vivo...</p>
                 </div>
             </div>
         </section>
