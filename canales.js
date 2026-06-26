@@ -5,19 +5,35 @@
 // ── CONFIGURACIÓN Y ESTADO GLOBAL ──
 const CONFIG = {
     CORS_PROXY: "https://api.allorigins.win/raw?url=",
-    TV_CHANNELS: [
-        { id: "3lBF90yO7U", name: "Dsports", logo: "https://ofutbol.jdoxx.com/files/channels/x3wgsVJwGb.png", category: "Deportes" },
-        { id: "EeVinvm5RF", name: "Win Sport +", logo: "https://ofutbol.jdoxx.com/files/channels/vdbVXJBtrH.png", category: "Deportes" },
-        { id: "R1tmdOgPfs", name: "ESPN Argentina", logo: "https://ofutbol.jdoxx.com/files/channels/R1tmdOgPfs.png", category: "Deportes" },
-        { id: "g6cgA6in4n", name: "ESPN 2 ARG", logo: "https://ofutbol.jdoxx.com/files/channels/g6cgA6in4n.png", category: "Deportes" },
-        { id: "mQUcOFtkRS", name: "ESPN Colombia", logo: "https://ofutbol.jdoxx.com/files/channels/mQUcOFtkRS.png", category: "Deportes" },
-        { id: "s0h9rtUZb4", name: "DAZN 1 ES", logo: "https://ofutbol.jdoxx.com/files/channels/s0h9rtUZb4.png", category: "Deportes" },
-        { id: "cUMcKMHEut", name: "Tyc Sport", logo: "https://ofutbol.jdoxx.com/files/channels/cUMcKMHEut.jpg", category: "Deportes" },
-        { id: "MrjtjZyYWq", name: "Fox Sports 3 ARG", logo: "https://ofutbol.jdoxx.com/files/channels/MrjtjZyYWq.webp", category: "Deportes" },
-        { id: "xavP8qQxiD", name: "Caracol TV", logo: "https://ofutbol.jdoxx.com/files/channels/xavP8qQxiD.png", category: "Nacional" },
-        { id: "3pDX9PZ6Bl", name: "RCN", logo: "https://ofutbol.jdoxx.com/files/channels/3pDX9PZ6Bl.png", category: "Nacional" },
-        { id: "V0ilLgz5g6", name: "Win Sport", logo: "https://ofutbol.jdoxx.com/files/channels/V0ilLgz5g6.png", category: "Deportes" },
-        { id: "TJXTpj8Lrc", name: "Junior de Curramba", logo: "https://ofutbol.jdoxx.com/files/channels/TJXTpj8Lrc.jpg", category: "Variedades" }
+    CATEGORIES: [
+        { id: "5yGwkvtV9Q", name: "Deportes" },
+        { id: "upzXNF741n", name: "Canales 24/7" },
+        { id: "3Yk0XPaR23", name: "HBO Canales" },
+        { id: "MrsrCNmZPd", name: "Fox Sports" },
+        { id: "9sUHPZnuZ2", name: "ESPN" },
+        { id: "uwisaTIfHn", name: "DAZN" },
+        { id: "mlhuFGhWzl", name: "Eurosport" },
+        { id: "DWoGRkbWcN", name: "Colombia" },
+        { id: "CEtPJgFuwz", name: "Argentina" },
+        { id: "2R2lGDVWoe", name: "Mexico" },
+        { id: "0wwoJtKO73", name: "Chile" },
+        { id: "FAs1Lwurzn", name: "Peru" },
+        { id: "pIr8OB66zF", name: "Bolivia" },
+        { id: "nKiCeNJoNF", name: "Venezuela" },
+        { id: "WLRNd0EFrx", name: "Uruguay" },
+        { id: "rFA3D8uRS2", name: "Entretenimiento" },
+        { id: "AYJKTlhrrI", name: "Documentales" },
+        { id: "wHLXbCcRVy", name: "Infantil" },
+        { id: "0kf2s4OIFl", name: "Musica" },
+        { id: "lMrccBXV8A", name: "Mundo" },
+        { id: "weOXRLK4XD", name: "Canales 18+" },
+        { id: "CjJqbRZaVV", name: "OnlineFutbol Eventos" },
+        { id: "yLqQecRYgp", name: "Disney Eventos" },
+        { id: "IgslMf83cI", name: "Vix Eventos" },
+        { id: "099XdtNqUj", name: "CapoDeportes Eventos" },
+        { id: "ANyxvEFmOA", name: "Fanatiz Eventos" },
+        { id: "SnlkBF9UUf", name: "Jeinz Eventos" },
+        { id: "gdfPrRiDn9", name: "Paramount Eventos" }
     ]
 };
 
@@ -47,6 +63,7 @@ let appState = {
 // Elementos DOM
 const dom = {
     sidebarChannels: document.getElementById("tv-sidebar-channels"),
+    categorySelect: document.getElementById("tv-category-select"),
     canalesList: document.getElementById("canales-list"),
     signalsPanel: document.getElementById("tv-signals-panel"),
     signalsList: document.getElementById("tv-signals-list"),
@@ -73,18 +90,12 @@ const dom = {
 // ── INICIALIZACIÓN ──
 document.addEventListener("DOMContentLoaded", () => {
     initClock();
-    renderTvChannels();
+    renderTvCategories();
     setupEventListeners();
     setupAudioAutoInit();
 
-    // Auto-reproducir primer canal por defecto
-    setTimeout(() => {
-        const firstChannelRow = dom.canalesList.querySelector(".tv-channel-item-row");
-        if (firstChannelRow) {
-            setFocus(firstChannelRow);
-            selectChannel(firstChannelRow);
-        }
-    }, 400);
+    // Cargar canales de la primera categoría por defecto
+    loadChannelsForSelectedCategory(true);
 });
 
 // ── RELOJ DEL SISTEMA ──
@@ -99,23 +110,69 @@ function initClock() {
     setInterval(updateClock, 60000);
 }
 
-// ── RENDER DE CANALES EN LA BARRA LATERAL VERTICAL ──
-function renderTvChannels() {
-    const listEl = dom.canalesList;
-    if (!listEl) return;
-
-    const html = CONFIG.TV_CHANNELS.map(ch => {
-        return `
-            <button class="tv-channel-item-row focusable"
-                data-channel-id="${ch.id}"
-                data-channel-name="${ch.name}"
-                data-channel-group="${ch.category}">
-                <img src="${ch.logo}" alt="${ch.name}" onerror="this.style.display='none'">
-                <span class="channel-name-txt">${ch.name}</span>
-            </button>`;
+// ── RENDER DE CATEGORÍAS ──
+function renderTvCategories() {
+    if (!dom.categorySelect) return;
+    
+    dom.categorySelect.innerHTML = CONFIG.CATEGORIES.map(cat => {
+        return `<option value="${cat.id}">${cat.name}</option>`;
     }).join("");
+}
 
-    listEl.innerHTML = html;
+// ── CARGA DINÁMICA DE CANALES POR CATEGORÍA ──
+async function loadChannelsForSelectedCategory(autoPlayFirst = false) {
+    if (!dom.canalesList || !dom.categorySelect) return;
+    
+    const catId = dom.categorySelect.value;
+    const catName = dom.categorySelect.options[dom.categorySelect.selectedIndex].text;
+    
+    dom.canalesList.innerHTML = `
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p style="font-size:11px;margin-top:5px">Cargando canales de ${catName}...</p>
+        </div>`;
+        
+    try {
+        const res = await fetch(`/api/get-channels?category=${catId}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const data = await res.json();
+        if (data.ok && data.channels && data.channels.length > 0) {
+            dom.canalesList.innerHTML = data.channels.map(ch => {
+                return `
+                    <button class="tv-channel-item-row focusable"
+                        data-channel-id="${ch.slug}"
+                        data-channel-name="${ch.name}"
+                        data-channel-group="${catName}">
+                        <img src="${ch.logo}" alt="${ch.name}" onerror="this.style.display='none'">
+                        <span class="channel-name-txt">${ch.name}</span>
+                    </button>`;
+            }).join("");
+            
+            rebuildSpatialIndexes();
+            
+            if (autoPlayFirst) {
+                setTimeout(() => {
+                    const firstRow = dom.canalesList.querySelector(".tv-channel-item-row");
+                    if (firstRow) {
+                        setFocus(firstRow);
+                        selectChannel(firstRow);
+                    }
+                }, 200);
+            }
+        } else {
+            dom.canalesList.innerHTML = `
+                <div class="error-state">
+                    <p>No se encontraron canales en esta categoría.</p>
+                </div>`;
+        }
+    } catch(err) {
+        console.error("[Carga Canales Error]:", err);
+        dom.canalesList.innerHTML = `
+            <div class="error-state">
+                <p>Error al obtener canales del servidor.</p>
+            </div>`;
+    }
 }
 
 // ── SELECCIÓN Y EXTRACCIÓN DEL CANAL ──
@@ -214,6 +271,17 @@ function setupEventListeners() {
     if (dom.btnResizeSlotPip) dom.btnResizeSlotPip.addEventListener("click", (e) => { e.stopPropagation(); cyclePipSize(); });
     if (dom.btnFullscreenToggle) dom.btnFullscreenToggle.addEventListener("click", (e) => { e.stopPropagation(); setMenuHidden(!appState.menuHidden); });
     if (dom.btnAudioSplit) dom.btnAudioSplit.addEventListener("click", (e) => { e.stopPropagation(); toggleAudioSplit(); });
+
+    // Evento de cambio en el selector de categorías
+    if (dom.categorySelect) {
+        dom.categorySelect.addEventListener("change", () => {
+            loadChannelsForSelectedCategory(true);
+        });
+        
+        dom.categorySelect.addEventListener("focus", () => {
+            activeFocusedElement = dom.categorySelect;
+        });
+    }
 
     // Eventos de click en la barra de canales
     dom.canalesList.addEventListener("click", (e) => {
@@ -901,9 +969,11 @@ function handleKeyDown(e) {
                 return;
             }
 
-            // 2. Desde la barra de canales hacia la derecha nos movemos al panel de señales
-            const isChannelRow = activeFocusedElement.classList.contains("tv-channel-item-row") || activeFocusedElement.id === "btn-goto-events";
-            if (key === "ArrowRight" && isChannelRow) {
+            // 2. Desde la barra de canales (incluyendo selector de categorías y botón volver) hacia la derecha nos movemos al panel de señales
+            const isChannelSidebarEl = activeFocusedElement.classList.contains("tv-channel-item-row") || 
+                                       activeFocusedElement.id === "btn-goto-events" || 
+                                       activeFocusedElement.id === "tv-category-select";
+            if (key === "ArrowRight" && isChannelSidebarEl) {
                 const activeSignal = dom.signalsList.querySelector(".active-play") || dom.signalsList.querySelector(".tv-signal-opt-btn");
                 if (activeSignal) {
                     setFocus(activeSignal);
