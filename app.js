@@ -1616,25 +1616,21 @@ function updateSlotsLayout() {
         
         applySplitWidths();
     }
-    // Caso 3: Solo Slot 1 y PiP activos (se verán en split-screen)
+    // Caso 3: Solo Slot 1 y PiP activos (Slot 1 en pantalla completa, PiP flotando)
     else if (s1 && sp) {
-        slot1El.classList.add("slot-role-left");
+        slot1El.classList.add("slot-role-single");
         slot2El.classList.add("slot-role-hidden");
-        slotPipEl.classList.add("slot-role-right");
-        if (wrapperEl) wrapperEl.classList.add("split-mode");
-        if (resizerEl) resizerEl.style.display = "flex";
-        
-        applySplitWidths();
+        slotPipEl.classList.add("slot-role-pip");
+        if (wrapperEl) wrapperEl.classList.remove("split-mode");
+        if (resizerEl) resizerEl.style.display = "none";
     }
-    // Caso 4: Solo Slot 2 y PiP activos (se verán en split-screen - tras cerrar 1)
+    // Caso 4: Solo Slot 2 y PiP activos (Slot 2 en pantalla completa, PiP flotando)
     else if (s2 && sp) {
         slot1El.classList.add("slot-role-hidden");
-        slot2El.classList.add("slot-role-left");
-        slotPipEl.classList.add("slot-role-right");
-        if (wrapperEl) wrapperEl.classList.add("split-mode");
-        if (resizerEl) resizerEl.style.display = "flex";
-        
-        applySplitWidths();
+        slot2El.classList.add("slot-role-single");
+        slotPipEl.classList.add("slot-role-pip");
+        if (wrapperEl) wrapperEl.classList.remove("split-mode");
+        if (resizerEl) resizerEl.style.display = "none";
     }
     // Caso 5: Solo Slot 1 activo
     else if (s1) {
