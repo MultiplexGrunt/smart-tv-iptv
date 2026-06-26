@@ -55,6 +55,18 @@ export default async function handler(req, res) {
         if (contentType.includes('text') || contentType.includes('mpegurl') || contentType.includes('application/x-mpegURL') || contentType.includes('json') || url.includes('.m3u')) {
             let data = await response.text();
             
+            // Si es una página HTML (Iframe), inyectamos la etiqueta <base> para resolver rutas relativas
+            if (contentType.includes('text/html')) {
+                const baseTag = `<base href="${url}">`;
+                if (data.includes('<head>')) {
+                    data = data.replace('<head>', `<head>${baseTag}`);
+                } else if (data.includes('<HEAD>')) {
+                    data = data.replace('<HEAD>', `<HEAD>${baseTag}`);
+                } else {
+                    data = baseTag + data;
+                }
+            }
+            
             // Si es un archivo de manifiesto HLS (m3u/m3u8), reescribimos las rutas para que pasen por el proxy manteniendo el referer
             const isM3U = url.includes('.m3u') || contentType.includes('mpegurl') || contentType.includes('application/x-mpegURL');
             if (isM3U) {

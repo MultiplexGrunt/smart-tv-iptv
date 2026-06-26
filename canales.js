@@ -540,7 +540,13 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
     if (forceIframe) {
         videoEl.style.display = "none";
         iframeEl.style.display = "block";
-        iframeEl.src = url;
+        
+        // Cargar el iframe a través del proxy con el referer de ofutbol
+        let proxyIframeUrl = url;
+        if (url.startsWith('http')) {
+            proxyIframeUrl = `/api/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent('https://ofutbol.jdoxx.com/')}`;
+        }
+        iframeEl.src = proxyIframeUrl;
     } else {
         iframeEl.style.display = "none";
         videoEl.style.display = "block";
@@ -551,8 +557,7 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
                 maxBufferSize: 10 * 1024 * 1024,
                 maxBufferLength: 10,
                 liveSyncDurationCount: 3,
-                pLoader: ProxyLoader,
-                fLoader: ProxyLoader,
+                loader: ProxyLoader,
                 customReferer: referer
             });
             
