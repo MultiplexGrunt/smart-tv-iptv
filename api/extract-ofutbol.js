@@ -201,7 +201,8 @@ export default async function handler(req, res) {
                             processedStreams.push({
                                 tipo: 3,
                                 url: directM3u8,
-                                note: "Señal Directa Descifrada"
+                                note: "Señal Directa Descifrada",
+                                referer: st.url // Guardar el referer original del iframe
                             });
                         }
                     }

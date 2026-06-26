@@ -993,6 +993,34 @@ body.is-dragging-pip video {
 
 .tv-sidebar-channels .header-top-bar {
     margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.btn-goto-events-top {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(255, 140, 0, 0.08);
+    border: 1px solid rgba(255, 140, 0, 0.25);
+    border-radius: 8px;
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 10px;
+    text-decoration: none;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-goto-events-top:hover, .btn-goto-events-top:focus, .btn-goto-events-top.focused {
+    background: var(--primary-gradient);
+    border-color: var(--primary);
+    color: #fff;
+    box-shadow: 0 0 10px var(--primary-glow);
+    transform: scale(1.05);
 }
 
 /* Contenedor vertical de canales */

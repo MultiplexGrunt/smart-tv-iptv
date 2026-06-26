@@ -307,7 +307,7 @@ function setupEventListeners() {
             e.stopPropagation();
             const url = decodeURIComponent(btn.dataset.streamUrl);
             const tipo = parseInt(btn.dataset.streamType, 10);
-            const index = btn.dataset.streamIndex;
+            const index = parseInt(btn.dataset.streamIndex, 10);
 
             if (appState.activeSignalBtn) {
                 appState.activeSignalBtn.classList.remove("active-play");
@@ -316,8 +316,12 @@ function setupEventListeners() {
             btn.classList.add("active-play");
 
             const forceIframe = tipo === 1;
-            const title = `${appState.currentChannelName} (Opción ${parseInt(index, 10) + 1})`;
-            playStream(url, title, appState.currentChannelGroup, forceIframe);
+            const title = `${appState.currentChannelName} (Opción ${index + 1})`;
+            
+            const streamObj = appState.currentStreams[index];
+            const referer = streamObj ? (streamObj.referer || "") : "";
+
+            playStream(url, title, appState.currentChannelGroup, forceIframe, referer);
         }
     });
 
@@ -464,19 +468,22 @@ async function fetchDecryptedStreams(channelId) {
 
 // Clase cargadora de HLS que redirecciona a través del proxy CORS
 class ProxyLoader extends Hls.DefaultConfig.loader {
-    constructor(config) { super(config); }
+    constructor(config) { 
+        super(config); 
+        this.customReferer = config.customReferer;
+    }
     load(context, config, callbacks) {
         const originalUrl = context.url;
-        if (!originalUrl.startsWith('http') || originalUrl.includes('/api/proxy') || originalUrl.includes('corsproxy.io')) {
+        if (!originalUrl.startsWith('http') || originalUrl.includes('/api/proxy')) {
             super.load(context, config, callbacks);
             return;
         }
 
-        let proxyUrl = "";
-        if (window.location.hostname.includes('vercel.app')) {
-            proxyUrl = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
-        } else {
-            proxyUrl = `https://corsproxy.io/?${encodeURIComponent(originalUrl)}`;
+        // Siempre usar el proxy local /api/proxy
+        let proxyUrl = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
+        const referer = this.customReferer || config.customReferer;
+        if (referer) {
+            proxyUrl += `&referer=${encodeURIComponent(referer)}`;
         }
 
         context.url = proxyUrl;
@@ -485,13 +492,13 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
 }
 
 // ── REPRODUCTOR DE VIDEO EN RANURA (SLOT) ──
-async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = false) {
-    console.log(`[Slot ${slotId}] Reproduciendo: ${title} -> ${url} (forceIframe=${forceIframe})`);
+async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = false, referer = "") {
+    console.log(`[Slot ${slotId}] Reproduciendo: ${title} -> ${url} (forceIframe=${forceIframe}, referer=${referer})`);
 
     if (!appState.slotsData) {
         appState.slotsData = { "1": null, "2": null, "pip": null };
     }
-    appState.slotsData[slotId] = { url, title, group, forceIframe };
+    appState.slotsData[slotId] = { url, title, group, forceIframe, referer };
 
     const slotEl = document.getElementById(`player-slot-${slotId}`);
     if (!slotEl) return;
@@ -545,9 +552,16 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
                 maxBufferLength: 10,
                 liveSyncDurationCount: 3,
                 pLoader: ProxyLoader,
-                fLoader: ProxyLoader
+                fLoader: ProxyLoader,
+                customReferer: referer
             });
-            appState[hlsKey].loadSource(url);
+            
+            // Pasar la URL inicial envuelta en el proxy si tiene protocolo http
+            let initialUrl = url;
+            if (url.startsWith('http')) {
+                initialUrl = `/api/proxy?url=${encodeURIComponent(url)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}`;
+            }
+            appState[hlsKey].loadSource(initialUrl);
             appState[hlsKey].attachMedia(videoEl);
             appState[hlsKey].on(Hls.Events.MANIFEST_PARSED, () => {
                 videoEl.play().catch(e => console.warn(`Autoplay bloqueado en Slot ${slotId}:`, e));
@@ -562,7 +576,12 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
                 }
             });
         } else {
-            videoEl.src = url;
+            // Reproductor nativo de video (ej. Safari)
+            let initialUrl = url;
+            if (url.startsWith('http')) {
+                initialUrl = `/api/proxy?url=${encodeURIComponent(url)}${referer ? `&referer=${encodeURIComponent(referer)}` : ''}`;
+            }
+            videoEl.src = initialUrl;
             videoEl.load();
             videoEl.play().catch(e => console.warn("Autoplay nativo bloqueado:", e));
         }
@@ -570,7 +589,7 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
 }
 
 // Reproducción principal
-function playStream(url, title, group = "Live TV", forceIframe = false) {
+function playStream(url, title, group = "Live TV", forceIframe = false, referer = "") {
     appState.currentPlayingUrl = url;
     appState.slotsData["2"] = null;
     appState.slotsData["pip"] = null;
@@ -580,7 +599,7 @@ function playStream(url, title, group = "Live TV", forceIframe = false) {
     stopSlotPlayer("2");
     stopSlotPlayer("pip");
 
-    playStreamInSlot("1", url, title, group, forceIframe, false);
+    playStreamInSlot("1", url, title, group, forceIframe, false, referer);
     updateSlotsLayout();
 }
 
@@ -604,9 +623,9 @@ function stopMainPlayer() {
     updateSlotsLayout();
 }
 
-function enableSplitScreen(url, title, group, forceIframe) {
+function enableSplitScreen(url, title, group, forceIframe, referer = "") {
     appState.splitMode = true;
-    playStreamInSlot("2", url, title, group, forceIframe, true);
+    playStreamInSlot("2", url, title, group, forceIframe, true, referer);
     updateSlotsLayout();
 }
 
@@ -626,9 +645,9 @@ function disableSplitScreen() {
     updateSlotsLayout();
 }
 
-function enablePipScreen(url, title, group, forceIframe) {
+function enablePipScreen(url, title, group, forceIframe, referer = "") {
     appState.pipMode = true;
-    playStreamInSlot("pip", url, title, group, forceIframe, true);
+    playStreamInSlot("pip", url, title, group, forceIframe, true, referer);
     updateSlotsLayout();
 }
 
