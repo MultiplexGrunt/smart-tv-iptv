@@ -1275,6 +1275,201 @@ body.is-dragging-pip video {
     transform: scale(1.02);
 }
 
+/* ── REDISEÑO DE TARJETAS DE EVENTOS (LIVE SPORTS) ── */
+.event-card {
+    display: flex;
+    flex-direction: column;
+    width: 200px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 8px;
+    gap: 8px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    flex-shrink: 0;
+    justify-content: space-between;
+    box-sizing: border-box;
+}
+
+.event-card.has-focused {
+    border-color: rgba(0, 240, 255, 0.4);
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.event-main-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--text-main);
+    padding: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.event-main-btn .event-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.event-main-btn .event-title-text {
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    width: 100%;
+}
+
+.event-main-btn:focus, .event-main-btn.focused {
+    background: var(--primary-gradient);
+    border-color: var(--primary);
+    box-shadow: 0 0 10px var(--primary-glow);
+    transform: scale(1.02);
+    color: #fff !important;
+}
+
+.event-main-btn:focus .event-time, .event-main-btn.focused .event-time {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.event-main-btn.active-play {
+    border-color: var(--teal-neon);
+    background: rgba(0, 240, 255, 0.08);
+    color: var(--teal-neon);
+    font-weight: 600;
+}
+
+.event-main-btn.active-play:focus, .event-main-btn.active-play.focused {
+    background: var(--primary-gradient);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.event-card-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.event-card-actions .btn-action-split, 
+.event-card-actions .btn-action-pip {
+    flex: 1;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    color: var(--text-main);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.event-card-actions .btn-action-split:focus, .event-card-actions .btn-action-split.focused,
+.event-card-actions .btn-action-pip:focus, .event-card-actions .btn-action-pip.focused {
+    background: var(--primary-gradient);
+    border-color: var(--primary);
+    box-shadow: 0 0 8px var(--primary-glow);
+    transform: scale(1.05);
+    color: #fff !important;
+}
+
+.event-card-actions .btn-action-split.active-play, 
+.event-card-actions .btn-action-pip.active-play {
+    border-color: var(--teal-neon);
+    background: rgba(0, 240, 255, 0.08);
+    color: var(--teal-neon);
+}
+
+/* ── SELECTORES FLOTANTES EN RANURAS DE VIDEO (D-PAD FOCUSABLE) ── */
+.slot-stream-select {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 10;
+    background: rgba(2, 7, 10, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    color: #fff;
+    padding: 6px 12px;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    max-width: 200px;
+    height: auto;
+}
+
+.slot-stream-select option {
+    background: #02070a;
+    color: #fff;
+    font-weight: 500;
+}
+
+.slot-stream-select:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.slot-stream-select:focus, .slot-stream-select.focused {
+    background: var(--primary-gradient) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 12px var(--primary-glow) !important;
+    color: #fff !important;
+    transform: scale(1.05);
+}
+
+/* Ocultar el selector cuando está inactivo */
+.slot-stream-select.hidden {
+    display: none !important;
+}
+
+/* El select del PiP tiene estilos específicos para caber en la barra */
+#slot-select-pip {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    max-width: 110px !important;
+    font-size: 9px !important;
+    padding: 2px 4px !important;
+    height: 20px !important;
+    border-radius: 4px !important;
+    margin-right: 6px !important;
+    background: rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+#slot-select-pip:focus, #slot-select-pip.focused {
+    background: var(--primary-gradient) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 8px var(--primary-glow) !important;
+    transform: scale(1.05) !important;
+}
+
+
 
 
 

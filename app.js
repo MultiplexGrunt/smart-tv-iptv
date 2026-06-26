@@ -290,6 +290,23 @@ function setupEventListeners() {
     document.addEventListener("mozfullscreenchange", syncFullscreen);
     document.addEventListener("MSFullscreenChange", syncFullscreen);
 
+    // Listeners para los selectores de transmisión en caliente en cada slot
+    ["1", "2", "pip"].forEach(slotId => {
+        const selectEl = document.getElementById(`slot-select-${slotId}`);
+        if (selectEl) {
+            selectEl.addEventListener("change", (e) => {
+                const activeIndex = parseInt(e.target.value);
+                handleSlotStreamChange(slotId, activeIndex);
+            });
+            // Evitar que el cambio de foco D-pad interfiera si se presiona Enter dentro del select
+            selectEl.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    e.stopPropagation();
+                }
+            });
+        }
+    });
+
     // Capturar teclado para navegación D-Pad
     document.addEventListener("keydown", handleKeyDown);
 }
@@ -735,66 +752,57 @@ function renderLiveEvents(events, container) {
 
             // Priorizar status "finished" para evitar que time_elapsed residual muestre VIVO en partidos terminados
             if (match.status === "finished" || match.status === "ended" || match.status === "complete") {
-                badgeHtml = `<span class="final-score-badge" style="margin-left: 5px; font-size: 7px; padding: 1px 4px;">FINAL</span>`;
+                badgeHtml = `<span class="final-score-badge" style="margin-top: 4px;">FINAL</span>`;
             } else if (match.status === "live" || match.status === "in_play" || match.time_elapsed) {
                 const elapsed = match.time_elapsed ? `${match.time_elapsed}'` : 'VIVO';
-                badgeHtml = `<span class="live-score-badge" style="margin-left: 5px; font-size: 7px; padding: 1px 4px;">🔴 ${elapsed}</span>`;
+                badgeHtml = `<span class="live-score-badge" style="margin-top: 4px;">🔴 ${elapsed}</span>`;
             }
         }
 
         // Si no hay marcador de La Cancha pero todos los links de stream están en estado finished
         const allLinksFinished = sortedLinks.length > 0 && sortedLinks.every(lk => lk.status === "finished");
         if (allLinksFinished && !badgeHtml) {
-            badgeHtml = `<span class="final-score-badge" style="margin-left: 5px; font-size: 7px; padding: 1px 4px;">FINAL</span>`;
+            badgeHtml = `<span class="final-score-badge" style="margin-top: 4px;">FINAL</span>`;
         }
 
-        const linksHtml = sortedLinks.map(lk => {
-            const qualityClass = lk.quality.type === "fhd" ? "fhd" : lk.quality.type === "sd" ? "sd" : "";
-            const label = lk.server;
-            const langFlag = lk.lang.code === "es" ? "🇪🇸" : lk.lang.code === "us" ? "🇺🇸" : lk.lang.code === "br" ? "🇧🇷" : lk.lang.code === "de" ? "🇩🇪" : "🌐";
+        // Serializar links en JSON codificado
+        const linksDataEnc = encodeURIComponent(JSON.stringify(sortedLinks));
 
-            let isBtnActive = appState.currentPlayingUrl === lk.url;
-            let isSplitActive = appState.slotsData && appState.slotsData["2"] && appState.slotsData["2"].url === lk.url;
-            let isPipActive = appState.slotsData && appState.slotsData["pip"] && appState.slotsData["pip"].url === lk.url;
-            const pageUrlEnc = encodeURIComponent(lk.url);
-            const streamName = `${ev.title} — ${label}`;
+        let isBtnActive = false;
+        let isSplitActive = false;
+        let isPipActive = false;
 
-            return `
-                <div class="stream-row-container">
-                    <button class="event-stream-btn focusable ${isBtnActive ? 'active-play' : ''}"
-                        data-page-url="${pageUrlEnc}"
-                        data-stream-name="${streamName}"
-                        data-stream-group="${ev.category}"
-                        tabindex="0">
-                        <span>${langFlag} ${label}</span>
-                        <span class="stream-quality ${qualityClass}">${lk.quality.label}</span>
-                    </button>
+        if (sortedLinks.length > 0) {
+            const firstUrl = sortedLinks[0].url;
+            isBtnActive = appState.currentPlayingUrl === firstUrl;
+            isSplitActive = appState.slotsData && appState.slotsData["2"] && appState.slotsData["2"].url === firstUrl;
+            isPipActive = appState.slotsData && appState.slotsData["pip"] && appState.slotsData["pip"].url === firstUrl;
+        }
+
+        return `
+            <div class="event-card">
+                <button class="event-main-btn focusable ${isBtnActive ? 'active-play' : ''}"
+                    data-links="${linksDataEnc}"
+                    data-event-title="${headerTitleText}"
+                    data-event-group="${ev.category}"
+                    tabindex="0">
+                    <span class="event-time">⏰ ${displayTime}</span>
+                    <span class="event-title-text" title="${headerTitleText}">${headerTitleText}</span>
+                    ${badgeHtml}
+                </button>
+                <div class="event-card-actions">
                     <button class="btn-action-split focusable ${isSplitActive ? 'active-play' : ''}"
-                        data-page-url="${pageUrlEnc}"
-                        data-stream-name="${streamName}"
-                        data-stream-group="${ev.category}"
+                        data-links="${linksDataEnc}"
+                        data-event-title="${headerTitleText}"
+                        data-event-group="${ev.category}"
                         tabindex="0"
                         title="Pantalla Partida (Multi-View)">📺</button>
                     <button class="btn-action-pip focusable ${isPipActive ? 'active-play' : ''}"
-                        data-page-url="${pageUrlEnc}"
-                        data-stream-name="${streamName}"
-                        data-stream-group="${ev.category}"
+                        data-links="${linksDataEnc}"
+                        data-event-title="${headerTitleText}"
+                        data-event-group="${ev.category}"
                         tabindex="0"
                         title="Reproducir en PiP Flotante">🖼️</button>
-                </div>`;
-        }).join("");
-
-        return `
-            <div class="event-column">
-                <div class="event-column-title">
-                    <div style="display: flex; align-items: center; min-width: 0; flex: 1;">
-                        <span class="event-title-text" style="font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;" title="${headerTitleText}">${headerTitleText}</span>
-                        ${badgeHtml}
-                    </div>
-                    <span style="font-size: 10px; color: var(--text-muted); font-weight: 500; margin-left: 8px; flex-shrink: 0;">⏰ ${displayTime}</span>
-                </div>
-                <div class="event-links-list">
-                    ${linksHtml}
                 </div>
             </div>`;
     }).join("");
@@ -813,10 +821,10 @@ function renderLiveEvents(events, container) {
     let savedFocusData = null;
     if (activeFocusedElement && container.contains(activeFocusedElement)) {
         savedFocusData = {
-            pageUrl: activeFocusedElement.dataset.pageUrl,
+            eventTitle: activeFocusedElement.dataset.eventTitle,
             isSplit: activeFocusedElement.classList.contains("btn-action-split"),
             isPip: activeFocusedElement.classList.contains("btn-action-pip"),
-            isStream: activeFocusedElement.classList.contains("event-stream-btn")
+            isMain: activeFocusedElement.classList.contains("event-main-btn")
         };
     }
 
@@ -824,85 +832,89 @@ function renderLiveEvents(events, container) {
     container.innerHTML = newHtml;
 
     // Asignar eventos a los elementos interactivos
-    container.querySelectorAll(".event-column").forEach(col => {
+    container.querySelectorAll(".event-card").forEach(card => {
 
-        // 1. Botón Principal (Reproducir normal)
-        col.querySelectorAll(".event-stream-btn").forEach(btn => {
-            btn.addEventListener("click", (e) => {
+        // 1. Botón Principal (Reproducir normal en Slot 1)
+        const mainBtn = card.querySelector(".event-main-btn");
+        if (mainBtn) {
+            mainBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
-                const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
-                const name = btn.dataset.streamName;
-                const group = btn.dataset.streamGroup;
+                const links = JSON.parse(decodeURIComponent(mainBtn.dataset.links));
+                const title = mainBtn.dataset.eventTitle;
+                const group = mainBtn.dataset.eventGroup;
 
                 // Marcar botón activo
                 if (appState.activeBtn) {
                     appState.activeBtn.classList.remove("active-play");
                 }
-                appState.activeBtn = btn;
-                btn.classList.add("active-play");
+                appState.activeBtn = mainBtn;
+                mainBtn.classList.add("active-play");
 
-                playStream(pageUrl, name, group, true);
+                playStream(links, 0, title, group);
             });
 
-            btn.addEventListener("focus", () => {
-                highlightColumn(col);
-                activeFocusedElement = btn;
+            mainBtn.addEventListener("focus", () => {
+                highlightColumn(card);
+                activeFocusedElement = mainBtn;
             });
-        });
+        }
 
         // 2. Botón Split (Pantalla Partida)
-        col.querySelectorAll(".btn-action-split").forEach(btn => {
-            btn.addEventListener("click", (e) => {
+        const splitBtn = card.querySelector(".btn-action-split");
+        if (splitBtn) {
+            splitBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
-                const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
-                const name = btn.dataset.streamName;
-                const group = btn.dataset.streamGroup;
-                enableSplitScreen(pageUrl, name, group, true);
+                const links = JSON.parse(decodeURIComponent(splitBtn.dataset.links));
+                const title = splitBtn.dataset.eventTitle;
+                const group = splitBtn.dataset.eventGroup;
+                enableSplitScreen(links, 0, title, group);
             });
 
-            btn.addEventListener("focus", () => {
-                highlightColumn(col);
-                activeFocusedElement = btn;
+            splitBtn.addEventListener("focus", () => {
+                highlightColumn(card);
+                activeFocusedElement = splitBtn;
             });
-        });
+        }
 
         // 3. Botón PiP (Pantalla Flotante)
-        col.querySelectorAll(".btn-action-pip").forEach(btn => {
-            btn.addEventListener("click", (e) => {
+        const pipBtn = card.querySelector(".btn-action-pip");
+        if (pipBtn) {
+            pipBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
-                const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
-                const name = btn.dataset.streamName;
-                const group = btn.dataset.streamGroup;
-                enablePipScreen(pageUrl, name, group, true);
+                const links = JSON.parse(decodeURIComponent(pipBtn.dataset.links));
+                const title = pipBtn.dataset.eventTitle;
+                const group = pipBtn.dataset.eventGroup;
+                enablePipScreen(links, 0, title, group);
             });
 
-            btn.addEventListener("focus", () => {
-                highlightColumn(col);
-                activeFocusedElement = btn;
+            pipBtn.addEventListener("focus", () => {
+                highlightColumn(card);
+                activeFocusedElement = pipBtn;
             });
-        });
+        }
     });
 
-    // Helper para iluminar la columna del partido enfocado
-    function highlightColumn(activeCol) {
-        container.querySelectorAll(".event-column").forEach(col => {
-            col.classList.remove("has-focused");
+    // Helper para iluminar la tarjeta del partido enfocado
+    function highlightColumn(activeCard) {
+        container.querySelectorAll(".event-card").forEach(c => {
+            c.classList.remove("has-focused");
         });
-        activeCol.classList.add("has-focused");
-        ensureColumnVisible(activeCol);
+        activeCard.classList.add("has-focused");
+        ensureColumnVisible(activeCard);
     }
 
     rebuildSpatialIndexes();
 
     // Restaurar foco guardado
-    if (savedFocusData) {
+    if (savedFocusData && savedFocusData.eventTitle) {
         let querySelector = "";
+        const escTitle = savedFocusData.eventTitle.replace(/"/g, '\\"');
         if (savedFocusData.isSplit) {
-            querySelector = `.btn-action-split[data-page-url="${savedFocusData.pageUrl}"]`;
+            querySelector = `.btn-action-split[data-event-title="${escTitle}"]`;
         } else if (savedFocusData.isPip) {
-            querySelector = `.btn-action-pip[data-page-url="${savedFocusData.pageUrl}"]`;
-        } else if (savedFocusData.isStream) {
-            querySelector = `.event-stream-btn[data-page-url="${savedFocusData.pageUrl}"]`;
+            querySelector = `.btn-action-pip[data-event-title="${escTitle}"]`;
+        } else if (savedFocusData.isMain) {
+            querySelector = `.event-main-btn[data-event-title="${escTitle}"]`;
         }
 
         if (querySelector) {
@@ -915,11 +927,11 @@ function renderLiveEvents(events, container) {
 
     // Si no hay elemento enfocado, enfocar el primero
     if (!activeFocusedElement) {
-        const firstBtn = container.querySelector(".event-stream-btn");
+        const firstBtn = container.querySelector(".event-main-btn");
         if (firstBtn) {
             setFocus(firstBtn);
 
-            // Auto-reproducción inteligente al ingresar a la app (misma hora -> split / pip)
+            // Auto-reproducción inteligente al ingresar a la app
             if (!appState.currentPlayingUrl) {
                 autoPlayIntelligent(events, container);
             }
@@ -975,14 +987,41 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
 }
 
 // ── REPRODUCTOR DE VIDEO ABSTRACTO POR RANURA (SLOT) ──
-async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted = false) {
+async function playStreamInSlot(slotId, links, activeIndex, title, group, isMuted = false) {
+    const link = links[activeIndex];
+    if (!link) return;
+    const url = link.url;
+    const isM3u8 = url.includes(".m3u8") || url.includes("playlist");
+    const forceIframe = !isM3u8;
+
     console.log(`[Slot ${slotId}] Reproduciendo: ${title} -> ${url} (forceIframe=${forceIframe}, isMuted=${isMuted})`);
 
     // Almacenar datos en el estado global para la reorganización inteligente
     if (!appState.slotsData) {
         appState.slotsData = { "1": null, "2": null, "pip": null };
     }
-    appState.slotsData[slotId] = { url, title, group, forceIframe };
+    appState.slotsData[slotId] = { links, activeIndex, url, title, group, forceIframe };
+
+    // Poblamos el select del slot correspondiente
+    const selectEl = document.getElementById(`slot-select-${slotId}`);
+    if (selectEl) {
+        selectEl.innerHTML = "";
+        if (links.length > 1) {
+            links.forEach((lk, idx) => {
+                const option = document.createElement("option");
+                option.value = idx;
+                const langFlag = lk.lang.code === "es" ? "🇪🇸" : lk.lang.code === "us" ? "🇺🇸" : lk.lang.code === "br" ? "🇧🇷" : lk.lang.code === "de" ? "🇩🇪" : "🌐";
+                option.textContent = `${langFlag} ${lk.server} (${lk.quality.label})`;
+                if (idx === activeIndex) {
+                    option.selected = true;
+                }
+                selectEl.appendChild(option);
+            });
+            selectEl.classList.remove("hidden");
+        } else {
+            selectEl.classList.add("hidden");
+        }
+    }
 
     // Interceptar señal de TV Azteca para cargarla en un iframe personalizado y limpio
     const isAztecaUrl = url.includes("tvazteca.com/aztecadeportes/mundial-2026/envivo");
@@ -1198,9 +1237,10 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
 }
 
 // Reproducción principal (Slot 1)
-function playStream(url, title, group = "Live Event", forceIframe = false) {
+function playStream(links, activeIndex, title, group = "Live Event") {
+    const activeUrl = links[activeIndex].url;
     console.log("[Seamless] playStream:", title);
-    appState.currentPlayingUrl = url;
+    appState.currentPlayingUrl = activeUrl;
 
     // Al reproducir un canal normal, limpiamos el slot 2 y PiP
     appState.slotsData["2"] = null;
@@ -1211,7 +1251,7 @@ function playStream(url, title, group = "Live Event", forceIframe = false) {
     stopSlotPlayer("2");
     stopSlotPlayer("pip");
 
-    playStreamInSlot("1", url, title, group, forceIframe, false);
+    playStreamInSlot("1", links, activeIndex, title, group, false);
 
     syncActiveButtonsInMenu();
     updateSlotsLayout();
@@ -1242,13 +1282,13 @@ function stopMainPlayer() {
 }
 
 // Activar Pantalla Partida (Multi-View)
-function enableSplitScreen(url, title, group, forceIframe) {
+function enableSplitScreen(links, activeIndex, title, group) {
     console.log("[Seamless] Activando Split Screen para:", title);
 
     appState.splitMode = true;
 
     // Reproducir en Slot 2 físico silenciado
-    playStreamInSlot("2", url, title, group, forceIframe, true);
+    playStreamInSlot("2", links, activeIndex, title, group, true);
 
     syncActiveButtonsInMenu();
     updateSlotsLayout();
@@ -1283,13 +1323,13 @@ function disableSplitScreen() {
 }
 
 // Activar PiP flotante
-function enablePipScreen(url, title, group, forceIframe) {
+function enablePipScreen(links, activeIndex, title, group) {
     console.log("[Seamless] Activando PiP flotante para:", title);
 
     appState.pipMode = true;
 
     // Reproducir en slot PiP físico en silencio
-    playStreamInSlot("pip", url, title, group, forceIframe, true);
+    playStreamInSlot("pip", links, activeIndex, title, group, true);
 
     syncActiveButtonsInMenu();
     updateSlotsLayout();
@@ -1381,8 +1421,6 @@ function applyPipSize() {
     }
 }
 
-
-
 // Desactivar PiP flotante
 function disablePipScreen() {
     if (!appState.pipMode) return;
@@ -1410,10 +1448,10 @@ function handleCloseSlot1() {
         stopSlotPlayer("2");
         stopSlotPlayer("pip");
 
-        playStreamInSlot("1", data2.url, data2.title, data2.group, data2.forceIframe, false);
+        playStreamInSlot("1", data2.links, data2.activeIndex, data2.title, data2.group, false);
         appState.currentPlayingUrl = data2.url;
 
-        playStreamInSlot("2", dataPip.url, dataPip.title, dataPip.group, dataPip.forceIframe, true);
+        playStreamInSlot("2", dataPip.links, dataPip.activeIndex, dataPip.title, dataPip.group, true);
 
         appState.slotsData["pip"] = null;
         appState.pipMode = false;
@@ -1432,7 +1470,7 @@ function handleCloseSlot1() {
         stopSlotPlayer("1");
         stopSlotPlayer("pip");
 
-        playStreamInSlot("1", dataPip.url, dataPip.title, dataPip.group, dataPip.forceIframe, false);
+        playStreamInSlot("1", dataPip.links, dataPip.activeIndex, dataPip.title, dataPip.group, false);
         appState.currentPlayingUrl = dataPip.url;
 
         appState.slotsData["pip"] = null;
@@ -1458,7 +1496,7 @@ function handleCloseSlot2() {
         stopSlotPlayer("2");
         stopSlotPlayer("pip");
 
-        playStreamInSlot("2", dataPip.url, dataPip.title, dataPip.group, dataPip.forceIframe, true);
+        playStreamInSlot("2", dataPip.links, dataPip.activeIndex, dataPip.title, dataPip.group, true);
 
         appState.slotsData["pip"] = null;
         appState.pipMode = false;
@@ -1665,31 +1703,47 @@ function syncActiveButtonsInMenu() {
     const url2 = appState.slotsData["2"] ? appState.slotsData["2"].url : null;
     const urlPip = appState.slotsData["pip"] ? appState.slotsData["pip"].url : null;
 
-    container.querySelectorAll(".event-stream-btn").forEach(btn => {
-        const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
-        if (url1 && pageUrl === url1) {
-            btn.classList.add("active-play");
-            appState.activeBtn = btn;
-        } else {
-            btn.classList.remove("active-play");
-        }
-    });
+    container.querySelectorAll(".event-card").forEach(card => {
+        const mainBtn = card.querySelector(".event-main-btn");
+        const splitBtn = card.querySelector(".btn-action-split");
+        const pipBtn = card.querySelector(".btn-action-pip");
 
-    container.querySelectorAll(".btn-action-split").forEach(btn => {
-        const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
-        if (url2 && pageUrl === url2) {
-            btn.classList.add("active-play");
-        } else {
-            btn.classList.remove("active-play");
-        }
-    });
+        if (!mainBtn) return;
 
-    container.querySelectorAll(".btn-action-pip").forEach(btn => {
-        const pageUrl = decodeURIComponent(btn.dataset.pageUrl);
-        if (urlPip && pageUrl === urlPip) {
-            btn.classList.add("active-play");
+        let links = [];
+        try {
+            links = JSON.parse(decodeURIComponent(mainBtn.dataset.links));
+        } catch (e) {
+            console.error("Error parseando links en syncActiveButtonsInMenu", e);
+        }
+
+        // ¿Alguno de los links del evento se está reproduciendo en el Slot 1?
+        const isActiveSlot1 = links.some(lk => lk.url === url1);
+        if (isActiveSlot1) {
+            mainBtn.classList.add("active-play");
+            appState.activeBtn = mainBtn;
         } else {
-            btn.classList.remove("active-play");
+            mainBtn.classList.remove("active-play");
+        }
+
+        // ¿Alguno de los links del evento se está reproduciendo en el Slot 2?
+        if (splitBtn) {
+            const isActiveSlot2 = links.some(lk => lk.url === url2);
+            if (isActiveSlot2) {
+                splitBtn.classList.add("active-play");
+            } else {
+                splitBtn.classList.remove("active-play");
+            }
+        }
+
+        // ¿Alguno de los links del evento se está reproduciendo en el Slot PiP?
+        if (pipBtn) {
+            const isActiveSlotPip = links.some(lk => lk.url === urlPip);
+            if (isActiveSlotPip) {
+                pipBtn.classList.add("active-play");
+            } else {
+                pipBtn.classList.remove("active-play");
+            }
         }
     });
 }
@@ -2272,74 +2326,183 @@ function autoPlayIntelligent(events, container) {
 
     if (targetEvents.length === 0) return;
 
+    // Helper para emparejar equipos de La Cancha con wc.json y armar el título con marcador si existiera
+    const getTargetEventTitle = (ev) => {
+        const match = findMatchingMatch(ev.title, appState.scores);
+        if (match && match.home_score !== null && match.away_score !== null) {
+            const splitters = [" vs ", " - ", " v "];
+            let teamA = "";
+            let teamB = "";
+            for (const splitter of splitters) {
+                if (ev.title.toLowerCase().includes(splitter)) {
+                    const parts = ev.title.split(new RegExp(splitter, "i"));
+                    teamA = parts[0].trim();
+                    teamB = parts[1].trim();
+                    break;
+                }
+            }
+
+            if (teamA && teamB) {
+                return `${teamA} ${match.home_score}–${match.away_score} ${teamB}`;
+            } else {
+                return `${match.home_team} ${match.home_score}–${match.away_score} ${match.away_team}`;
+            }
+        }
+        return ev.title;
+    };
+
     if (targetEvents.length === 1) {
         const ev1 = targetEvents[0];
-        const lk1 = ev1.links[0];
-        const pageUrl = lk1.url;
-        const streamName = `${ev1.title} — ${lk1.server}`;
+        const eventTitle1 = getTargetEventTitle(ev1);
+        const escTitle = eventTitle1.replace(/"/g, '\\"');
 
         // Marcar botón en el DOM
-        const btn1 = container.querySelector(`.event-stream-btn[data-page-url="${encodeURIComponent(pageUrl)}"]`);
+        const btn1 = container.querySelector(`.event-main-btn[data-event-title="${escTitle}"]`);
         if (btn1) {
             appState.activeBtn = btn1;
             btn1.classList.add("active-play");
         }
 
-        console.log(`[AutoPlay] Reproduciendo 1 canal: ${streamName}`);
-        playStream(pageUrl, streamName, ev1.category, true);
+        console.log(`[AutoPlay] Reproduciendo 1 canal: ${eventTitle1}`);
+        // Agregar TV Azteca si aplica al array de links para que playStream funcione bien
+        const match = findMatchingMatch(ev1.title, appState.scores);
+        const sortedLinks = [...ev1.links].sort((a, b) => {
+            const aIsEs = (a.lang && a.lang.code === "es") ? 1 : 0;
+            const bIsEs = (b.lang && b.lang.code === "es") ? 1 : 0;
+            return bIsEs - aIsEs;
+        });
+        if (isTvAztecaMatch(ev1.title, match)) {
+            const aztecaLink = {
+                url: "https://www.tvazteca.com/aztecadeportes/mundial-2026/envivo",
+                server: "Azteca 7 (TV Azteca)",
+                quality: { label: "HD", type: "hd" },
+                lang: { code: "es" }
+            };
+            if (sortedLinks.length >= 1) sortedLinks.splice(1, 0, aztecaLink);
+            else sortedLinks.push(aztecaLink);
+        }
+
+        playStream(sortedLinks, 0, eventTitle1, ev1.category);
     } 
     else if (targetEvents.length === 2) {
         const ev1 = targetEvents[0];
-        const lk1 = ev1.links[0];
         const ev2 = targetEvents[1];
-        const lk2 = ev2.links[0];
+        const eventTitle1 = getTargetEventTitle(ev1);
+        const eventTitle2 = getTargetEventTitle(ev2);
+        const escTitle1 = eventTitle1.replace(/"/g, '\\"');
+        const escTitle2 = eventTitle2.replace(/"/g, '\\"');
 
         // Marcar botones en el DOM
-        const btn1 = container.querySelector(`.event-stream-btn[data-page-url="${encodeURIComponent(lk1.url)}"]`);
+        const btn1 = container.querySelector(`.event-main-btn[data-event-title="${escTitle1}"]`);
         if (btn1) {
             appState.activeBtn = btn1;
             btn1.classList.add("active-play");
         }
-        const btn2 = container.querySelector(`.btn-action-split[data-page-url="${encodeURIComponent(lk2.url)}"]`);
+        const btn2 = container.querySelector(`.btn-action-split[data-event-title="${escTitle2}"]`);
         if (btn2) {
             btn2.classList.add("active-play");
         }
 
-        console.log(`[AutoPlay] Reproduciendo pantalla partida (2 canales): ${ev1.title} + ${ev2.title}`);
-        // Reproducir Slot 1 principal
-        playStream(lk1.url, `${ev1.title} — ${lk1.server}`, ev1.category, true);
-        // Reproducir Slot 2 (Split)
-        enableSplitScreen(lk2.url, `${ev2.title} — ${lk2.server}`, ev2.category, true);
+        console.log(`[AutoPlay] Reproduciendo pantalla partida (2 canales): ${eventTitle1} + ${eventTitle2}`);
+        
+        // Obtener links con TV Azteca
+        const getLinksWithAzteca = (ev) => {
+            const match = findMatchingMatch(ev.title, appState.scores);
+            const sortedLinks = [...ev.links].sort((a, b) => {
+                const aIsEs = (a.lang && a.lang.code === "es") ? 1 : 0;
+                const bIsEs = (b.lang && b.lang.code === "es") ? 1 : 0;
+                return bIsEs - aIsEs;
+            });
+            if (isTvAztecaMatch(ev.title, match)) {
+                const aztecaLink = {
+                    url: "https://www.tvazteca.com/aztecadeportes/mundial-2026/envivo",
+                    server: "Azteca 7 (TV Azteca)",
+                    quality: { label: "HD", type: "hd" },
+                    lang: { code: "es" }
+                };
+                if (sortedLinks.length >= 1) sortedLinks.splice(1, 0, aztecaLink);
+                else sortedLinks.push(aztecaLink);
+            }
+            return sortedLinks;
+        };
+
+        playStream(getLinksWithAzteca(ev1), 0, eventTitle1, ev1.category);
+        enableSplitScreen(getLinksWithAzteca(ev2), 0, eventTitle2, ev2.category);
     } 
     else if (targetEvents.length >= 3) {
         const ev1 = targetEvents[0];
-        const lk1 = ev1.links[0];
         const ev2 = targetEvents[1];
-        const lk2 = ev2.links[0];
         const ev3 = targetEvents[2];
-        const lk3 = ev3.links[0];
+        const eventTitle1 = getTargetEventTitle(ev1);
+        const eventTitle2 = getTargetEventTitle(ev2);
+        const eventTitle3 = getTargetEventTitle(ev3);
+        const escTitle1 = eventTitle1.replace(/"/g, '\\"');
+        const escTitle2 = eventTitle2.replace(/"/g, '\\"');
+        const escTitle3 = eventTitle3.replace(/"/g, '\\"');
 
         // Marcar botones en el DOM
-        const btn1 = container.querySelector(`.event-stream-btn[data-page-url="${encodeURIComponent(lk1.url)}"]`);
+        const btn1 = container.querySelector(`.event-main-btn[data-event-title="${escTitle1}"]`);
         if (btn1) {
             appState.activeBtn = btn1;
             btn1.classList.add("active-play");
         }
-        const btn2 = container.querySelector(`.btn-action-split[data-page-url="${encodeURIComponent(lk2.url)}"]`);
+        const btn2 = container.querySelector(`.btn-action-split[data-event-title="${escTitle2}"]`);
         if (btn2) {
             btn2.classList.add("active-play");
         }
-        const btn3 = container.querySelector(`.btn-action-pip[data-page-url="${encodeURIComponent(lk3.url)}"]`);
+        const btn3 = container.querySelector(`.btn-action-pip[data-event-title="${escTitle3}"]`);
         if (btn3) {
             btn3.classList.add("active-play");
         }
 
-        console.log(`[AutoPlay] Reproduciendo Multi-View (3 canales): ${ev1.title} + ${ev2.title} + ${ev3.title}`);
-        // Reproducir Slot 1 principal
-        playStream(lk1.url, `${ev1.title} — ${lk1.server}`, ev1.category, true);
-        // Reproducir Slot 2 (Split)
-        enableSplitScreen(lk2.url, `${ev2.title} — ${lk2.server}`, ev2.category, true);
-        // Reproducir Slot PiP (Flotante)
-        enablePipScreen(lk3.url, `${ev3.title} — ${lk3.server}`, ev3.category, true);
+        console.log(`[AutoPlay] Reproduciendo Multi-View (3 canales): ${eventTitle1} + ${eventTitle2} + ${eventTitle3}`);
+        
+        // Obtener links con TV Azteca
+        const getLinksWithAzteca = (ev) => {
+            const match = findMatchingMatch(ev.title, appState.scores);
+            const sortedLinks = [...ev.links].sort((a, b) => {
+                const aIsEs = (a.lang && a.lang.code === "es") ? 1 : 0;
+                const bIsEs = (b.lang && b.lang.code === "es") ? 1 : 0;
+                return bIsEs - aIsEs;
+            });
+            if (isTvAztecaMatch(ev.title, match)) {
+                const aztecaLink = {
+                    url: "https://www.tvazteca.com/aztecadeportes/mundial-2026/envivo",
+                    server: "Azteca 7 (TV Azteca)",
+                    quality: { label: "HD", type: "hd" },
+                    lang: { code: "es" }
+                };
+                if (sortedLinks.length >= 1) sortedLinks.splice(1, 0, aztecaLink);
+                else sortedLinks.push(aztecaLink);
+            }
+            return sortedLinks;
+        };
+
+        playStream(getLinksWithAzteca(ev1), 0, eventTitle1, ev1.category);
+        enableSplitScreen(getLinksWithAzteca(ev2), 0, eventTitle2, ev2.category);
+        enablePipScreen(getLinksWithAzteca(ev3), 0, eventTitle3, ev3.category);
     }
 }
+
+/**
+ * Cambia la transmisión de un slot específico al índice indicado.
+ */
+function handleSlotStreamChange(slotId, activeIndex) {
+    const slotData = appState.slotsData[slotId];
+    if (!slotData || !slotData.links) return;
+
+    console.log(`[Slot ${slotId}] Cambiando stream al índice ${activeIndex}`);
+
+    const isMuted = slotId !== "1"; // Solo el slot 1 tiene audio activo
+
+    // Si es el slot 1 y no está en split/pip, actualizamos la url global reproduciendo
+    if (slotId === "1" && !appState.splitMode && !appState.pipMode) {
+        appState.currentPlayingUrl = slotData.links[activeIndex].url;
+    }
+
+    playStreamInSlot(slotId, slotData.links, activeIndex, slotData.title, slotData.group, isMuted);
+
+    // Sincronizar botones de reproducción en la lista superior
+    syncActiveButtonsInMenu();
+}
+

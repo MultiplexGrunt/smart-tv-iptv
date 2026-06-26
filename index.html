@@ -59,6 +59,9 @@
                         allowfullscreen></iframe>
                     <button class="slot-close-btn focusable" id="btn-close-slot-1" tabindex="0"
                         title="Detener reproducción">×</button>
+                    <select class="slot-stream-select focusable hidden" id="slot-select-1" tabindex="0">
+                        <option value="">Cargando opciones...</option>
+                    </select>
                 </div>
 
                 <!-- DIVISOR ARRASTRABLE PARA PANTALLA PARTIDA -->
@@ -74,6 +77,9 @@
                     <div class="slot-badge">PANTALLA 2</div>
                     <button class="slot-close-btn focusable" id="btn-close-slot-2" tabindex="0"
                         title="Cerrar pantalla partida">×</button>
+                    <select class="slot-stream-select focusable hidden" id="slot-select-2" tabindex="0">
+                        <option value="">Cargando opciones...</option>
+                    </select>
                 </div>
 
                 <!-- RANURA PiP: Flotante (Esquinas) -->
@@ -84,6 +90,9 @@
                         allowfullscreen></iframe>
                     <!-- Barra superior de control y arrastre -->
                     <div class="pip-control-header" id="pip-control-header">
+                        <select class="slot-stream-select focusable hidden" id="slot-select-pip" tabindex="0" style="width: auto; max-width: 110px; font-size: 9px; padding: 2px 4px; height: 20px; border-radius: 4px; margin-right: 6px; position: relative; top: auto; left: auto; background: rgba(0, 0, 0, 0.6);">
+                            <option value="">Señal...</option>
+                        </select>
                         <button class="slot-resize-btn focusable" id="btn-resize-slot-pip" tabindex="0"
                             title="Cambiar tamaño de PiP">⤢</button>
                         <button class="slot-drag-btn focusable" id="btn-drag-slot-pip" tabindex="0"
