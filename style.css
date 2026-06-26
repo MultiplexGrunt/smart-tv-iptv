@@ -1469,6 +1469,47 @@ body.is-dragging-pip video {
     transform: scale(1.05) !important;
 }
 
+/* ── ESTILO PREMIUM BOTÓN DE CANALES (LADO IZQUIERDO) ── */
+.btn-channels-link {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    color: var(--text-main);
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+.btn-channels-link:focus, .btn-channels-link.focused {
+    background: var(--primary-gradient);
+    border-color: var(--primary);
+    box-shadow: 0 0 8px var(--primary-glow);
+    transform: scale(1.05);
+    color: #fff !important;
+}
+
+/* Centrado y tamaño de iconos en botones */
+.btn-channels-link .material-icons,
+.btn-fullscreen .material-icons,
+.btn-audio-split .material-icons,
+.btn-action-split .material-icons,
+.btn-action-pip .material-icons {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    line-height: 1;
+}
+
+
 
 
 

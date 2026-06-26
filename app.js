@@ -786,7 +786,10 @@ function renderLiveEvents(events, container) {
                     data-event-title="${headerTitleText}"
                     data-event-group="${ev.category}"
                     tabindex="0">
-                    <span class="event-time">⏰ ${displayTime}</span>
+                    <span class="event-time" style="display: flex; align-items: center; gap: 3px;">
+                        <span class="material-icons" style="font-size: 10px;">access_time</span>
+                        ${displayTime}
+                    </span>
                     <span class="event-title-text" title="${headerTitleText}">${headerTitleText}</span>
                     ${badgeHtml}
                 </button>
@@ -796,13 +799,17 @@ function renderLiveEvents(events, container) {
                         data-event-title="${headerTitleText}"
                         data-event-group="${ev.category}"
                         tabindex="0"
-                        title="Pantalla Partida (Multi-View)">📺</button>
+                        title="Pantalla Partida (Multi-View)">
+                        <span class="material-icons">splitscreen</span>
+                    </button>
                     <button class="btn-action-pip focusable ${isPipActive ? 'active-play' : ''}"
                         data-links="${linksDataEnc}"
                         data-event-title="${headerTitleText}"
                         data-event-group="${ev.category}"
                         tabindex="0"
-                        title="Reproducir en PiP Flotante">🖼️</button>
+                        title="Reproducir en PiP Flotante">
+                        <span class="material-icons">picture_in_picture</span>
+                    </button>
                 </div>
             </div>`;
     }).join("");
@@ -1788,7 +1795,8 @@ function setMenuHidden(hidden) {
     if (hidden) {
         dom.eventsSection.classList.add("hidden");
         if (dom.btnFullscreenToggle) {
-            dom.btnFullscreenToggle.textContent = "📺";
+            const fsIcon = dom.btnFullscreenToggle.querySelector(".material-icons");
+            if (fsIcon) fsIcon.textContent = "live_tv";
         }
         // Desenfocar elemento actual para que el foco no interfiera
         if (activeFocusedElement) {
@@ -1808,7 +1816,8 @@ function setMenuHidden(hidden) {
     } else {
         dom.eventsSection.classList.remove("hidden");
         if (dom.btnFullscreenToggle) {
-            dom.btnFullscreenToggle.textContent = "⛶";
+            const fsIcon = dom.btnFullscreenToggle.querySelector(".material-icons");
+            if (fsIcon) fsIcon.textContent = "fullscreen";
         }
 
         // Recuperar el foco en el último botón activo o en el primero disponible
@@ -1816,7 +1825,7 @@ function setMenuHidden(hidden) {
             if (appState.activeBtn) {
                 setFocus(appState.activeBtn);
             } else {
-                const firstBtn = dom.eventsList.querySelector(".event-stream-btn");
+                const firstBtn = dom.eventsList.querySelector(".event-main-btn");
                 if (firstBtn) setFocus(firstBtn);
             }
         }, 150);

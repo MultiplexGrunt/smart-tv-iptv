@@ -13,6 +13,8 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <!-- Google Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <!-- HLS.js para soportar streams de video .m3u8 en navegadores que no lo soportan de forma nativa -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
@@ -23,19 +25,27 @@
 
         <!-- Botonera y Reloj Flotante Global (Encima de todo) -->
         <div class="header-status" id="header-status-global">
-            <button class="btn-fullscreen focusable" id="btn-fullscreen-toggle" tabindex="0" title="Alternar Menú / Pantalla Completa">⛶</button>
-            <button class="btn-audio-split focusable" id="btn-audio-split" tabindex="0" title="Audio Dividido (Auriculares L/R)">🎧</button>
-            <a href="canales.html" class="btn-channels-link focusable" id="btn-goto-channels" tabindex="0" title="Ir a Canales de TV" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">📺 Canales</a>
+            <button class="btn-fullscreen focusable" id="btn-fullscreen-toggle" tabindex="0" title="Alternar Menú / Pantalla Completa">
+                <span class="material-icons">fullscreen</span>
+            </button>
+            <button class="btn-audio-split focusable" id="btn-audio-split" tabindex="0" title="Audio Dividido (Auriculares L/R)">
+                <span class="material-icons">headset</span>
+            </button>
             <div class="tv-clock" id="system-clock">00:00</div>
         </div>
 
         <!-- ── PANEL DE EVENTOS SUPERIOR (30% DE LA PANTALLA) ── -->
         <header class="tv-events-section" id="tv-events-section">
             <div class="header-top-bar">
-                <div class="tv-brand">
-                    <span class="brand-glow"></span>
-                    <span class="brand-title">GrunTV</span>
-                    <span class="brand-subtitle">Live Sports</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <a href="canales.html" class="btn-channels-link focusable" id="btn-goto-channels" tabindex="0" title="Ir a Canales de TV">
+                        <span class="material-icons">live_tv</span>
+                    </a>
+                    <div class="tv-brand">
+                        <span class="brand-glow"></span>
+                        <span class="brand-title">GrunTV</span>
+                        <span class="brand-subtitle">Live Sports</span>
+                    </div>
                 </div>
             </div>
 
