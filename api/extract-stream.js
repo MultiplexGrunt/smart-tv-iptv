@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     try {
         pageUrl = decodeURIComponent(page);
         // Validar que sea un dominio permitido
-        const allowed = ['streamtpday1.xyz', 'sudamericaplay2.com'];
+        const allowed = ['streamtpday1.xyz', 'sudamericaplay2.com', 'culesolazo.vercel.app'];
         const hostname = new URL(pageUrl).hostname;
         if (!allowed.some(d => hostname.endsWith(d))) {
             return res.status(403).json({ ok: false, error: 'Dominio no permitido.' });
