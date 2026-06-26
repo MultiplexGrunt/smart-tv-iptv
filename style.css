@@ -1276,6 +1276,7 @@ body.is-dragging-pip video {
 }
 
 /* ── REDISEÑO DE TARJETAS DE EVENTOS (LIVE SPORTS) ── */
+/* ── REDISEÑO DE TARJETAS DE EVENTOS (LIVE SPORTS) ── */
 .event-card {
     display: flex;
     flex-direction: column;
@@ -1284,7 +1285,7 @@ body.is-dragging-pip video {
     border: 1px solid var(--border-light);
     border-radius: 10px;
     padding: 6px;
-    gap: 6px;
+    gap: 0px; /* Separación eliminada para unificar el bloque */
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     flex-shrink: 0;
     justify-content: space-between;
@@ -1301,7 +1302,7 @@ body.is-dragging-pip video {
     width: 100%;
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 6px;
+    border-radius: 6px 6px 0 0; /* Bordes inferiores rectos para unirse a las acciones */
     color: var(--text-main);
     padding: 6px 4px;
     display: flex;
@@ -1361,12 +1362,26 @@ body.is-dragging-pip video {
 .event-card-actions {
     display: flex;
     flex-direction: row;
-    gap: 4px;
+    gap: 2px; /* Espacio horizontal mínimo entre las acciones */
     width: 100%;
     box-sizing: border-box;
 }
 
-.event-card-actions .btn-action-split, 
+.event-card-actions .btn-action-split {
+    flex: 1;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-light);
+    border-radius: 0 0 0 6px; /* Solo la esquina inferior izquierda es redondeada */
+    color: var(--text-main);
+    cursor: pointer;
+    font-size: 10px;
+    transition: all 0.2s ease;
+}
+
 .event-card-actions .btn-action-pip {
     flex: 1;
     height: 24px;
@@ -1375,7 +1390,7 @@ body.is-dragging-pip video {
     justify-content: center;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border-light);
-    border-radius: 6px;
+    border-radius: 0 0 6px 0; /* Solo la esquina inferior derecha es redondeada */
     color: var(--text-main);
     cursor: pointer;
     font-size: 10px;
