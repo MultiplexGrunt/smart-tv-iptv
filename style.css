@@ -857,7 +857,6 @@ body.is-dragging-pip .pip-control-header {
 
 /* Iconos de botones de control */
 .pip-control-header .slot-resize-btn { font-size: 9px !important; }
-.pip-control-header .slot-drag-btn { font-size: 9px !important; cursor: move !important; }
 .pip-control-header .slot-position-btn { font-size: 9px !important; }
 .pip-control-header .slot-close-btn { font-size: 12px !important; line-height: 1 !important; }
 

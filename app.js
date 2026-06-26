@@ -49,7 +49,6 @@ const dom = {
     btnFullscreenToggle: document.getElementById("btn-fullscreen-toggle"),
     btnAudioSplit: document.getElementById("btn-audio-split"),
     positionBtnPip: document.getElementById("btn-position-slot-pip"),
-    btnDragSlotPip: document.getElementById("btn-drag-slot-pip"),
     btnResizeSlotPip: document.getElementById("btn-resize-slot-pip"),
     splitResizer: document.getElementById("split-resizer")
 };
@@ -132,8 +131,9 @@ function setupEventListeners() {
         let startTop = 0;
 
         const onDragStart = (e) => {
-            // Si el clic/toque fue en un botón interactivo dentro del header, NO iniciar arrastre del PiP
-            if (e.target.tagName.toLowerCase() === "button" || e.target.closest("button")) {
+            // Si el clic/toque fue en un botón interactivo o select dentro del header, NO iniciar arrastre del PiP
+            if (e.target.tagName.toLowerCase() === "button" || e.target.closest("button") ||
+                e.target.tagName.toLowerCase() === "select" || e.target.closest("select")) {
                 return;
             }
 
@@ -247,7 +247,8 @@ function setupEventListeners() {
         dom.pipControlHeader.addEventListener("touchstart", onDragStart, { passive: false });
 
         dom.pipControlHeader.addEventListener("click", (e) => {
-            if (e.target.tagName.toLowerCase() !== "button" && !e.target.closest("button")) {
+            if (e.target.tagName.toLowerCase() !== "button" && !e.target.closest("button") &&
+                e.target.tagName.toLowerCase() !== "select" && !e.target.closest("select")) {
                 e.preventDefault();
                 e.stopPropagation();
             }
