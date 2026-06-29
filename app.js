@@ -27,7 +27,8 @@ let appState = {
         "1": null,
         "2": null,
         "pip": null
-    }
+    },
+    lastEvents: []              // Almacén de eventos deportivos cargados con éxito (fallback/re-render)
 };
 
 // Elementos DOM
@@ -334,15 +335,19 @@ async function loadLiveEvents() {
     const listEl = dom.eventsList;
     if (!listEl) return;
 
-    try {
-        // 1. Cargar primero los marcadores de La Cancha de forma asíncrona
-        try {
-            await loadLaCanchaScores();
-        } catch (scoreErr) {
-            console.warn("No se pudieron actualizar los marcadores deportivos:", scoreErr);
+    // 1. Cargar marcadores de La Cancha de forma asíncrona (no bloqueante)
+    loadLaCanchaScores().then(() => {
+        console.log("Marcadores deportivos de La Cancha actualizados asíncronamente.");
+        // Si ya tenemos eventos cargados en memoria, re-renderizar para pintar los nuevos marcadores
+        if (appState.lastEvents && appState.lastEvents.length > 0) {
+            renderLiveEvents(appState.lastEvents, listEl);
         }
+    }).catch(scoreErr => {
+        console.warn("No se pudieron actualizar los marcadores deportivos:", scoreErr);
+    });
 
-        // 2. Cargar eventos en vivo principales
+    // 2. Cargar eventos en vivo principales
+    try {
         const proxyUrl = buildProxyUrl(CONFIG.EVENTS_JSON_URL);
         const res = await fetchWithTimeout(proxyUrl, {}, 8000);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -355,11 +360,48 @@ async function loadLiveEvents() {
             return;
         }
 
+        // Guardar eventos en estado global para re-renderizados
+        appState.lastEvents = events;
+
         renderLiveEvents(events, listEl);
 
     } catch (err) {
-        console.warn("Error cargando eventos en vivo:", err);
-        if (!listEl.querySelector(".event-column")) {
+        console.warn("Error cargando eventos en vivo, intentando fallback de canales:", err);
+
+        // Fallback: Cargar los canales deportivos dinámicos de ofutbol
+        try {
+            console.log("Cargando lista de canales de deportes como fallback de eventos en vivo...");
+            const fallbackRes = await fetchWithTimeout("/api/get-channels?category=5yGwkvtV9Q", {}, 8000);
+            if (!fallbackRes.ok) throw new Error(`HTTP ${fallbackRes.status}`);
+
+            const fallbackData = await fallbackRes.json();
+            const channels = fallbackData.channels || [];
+
+            if (channels.length > 0) {
+                const fallbackEvents = channels.map(ch => ({
+                    title: ch.name,
+                    time: "En Vivo",
+                    category: "Deportes",
+                    links: [{
+                        url: ch.slug,
+                        server: ch.name,
+                        quality: { label: "HD", type: "hd" },
+                        lang: { code: "es" },
+                        isOfutbol: true
+                    }]
+                }));
+
+                appState.lastEvents = fallbackEvents;
+                console.log(`Cargados exitosamente ${fallbackEvents.length} eventos de fallback desde canales.`);
+                renderLiveEvents(fallbackEvents, listEl);
+                return;
+            }
+        } catch (fallbackErr) {
+            console.error("Error al obtener los canales deportivos de fallback:", fallbackErr);
+        }
+
+        // Si tampoco hay fallback y la UI está vacía, mostrar mensaje de error
+        if (!listEl.querySelector(".event-card") && !listEl.querySelector(".event-column")) {
             listEl.innerHTML = `<div class="error-state"><p>⚠️ Error al conectar con el servidor de eventos</p></div>`;
         }
     }
@@ -964,6 +1006,7 @@ function ensureColumnVisible(col) {
 class ProxyLoader extends Hls.DefaultConfig.loader {
     constructor(config) {
         super(config);
+        this.customReferer = config.customReferer;
     }
     load(context, config, callbacks) {
         const originalUrl = context.url;
@@ -972,14 +1015,19 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
         if (!originalUrl.startsWith('http') ||
             originalUrl.includes('tecnotv.club') ||
             originalUrl.includes('dai.google.com') ||
-            originalUrl.includes('corsproxy.io') ||
             originalUrl.includes('/api/proxy')) {
             super.load(context, config, callbacks);
             return;
         }
 
         let proxyUrl = "";
-        if (window.location.hostname.includes('vercel.app')) {
+        const host = window.location.hostname;
+        const isVercelOrLocal = host.includes("vercel.app") ||
+            host === "localhost" ||
+            host === "127.0.0.1" ||
+            host.includes(".local");
+
+        if (isVercelOrLocal) {
             proxyUrl = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
         } else {
             if (originalUrl.includes('mdstrm.com')) {
@@ -989,6 +1037,11 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
             }
         }
 
+        const referer = this.customReferer || config.customReferer;
+        if (referer) {
+            proxyUrl += (proxyUrl.includes('?') ? '&' : '?') + `referer=${encodeURIComponent(referer)}`;
+        }
+
         context.url = proxyUrl;
         super.load(context, config, callbacks);
     }
@@ -996,8 +1049,53 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
 
 // ── REPRODUCTOR DE VIDEO ABSTRACTO POR RANURA (SLOT) ──
 async function playStreamInSlot(slotId, links, activeIndex, title, group, isMuted = false) {
-    const link = links[activeIndex];
+    let link = links[activeIndex];
     if (!link) return;
+
+    // Interceptar si es un canal de ofutbol (fallback) que requiere descifrado
+    if (link.isOfutbol) {
+        console.log(`[Slot ${slotId}] Detectado canal de ofutbol de fallback: ${title}. Descifrando señales...`);
+        if (dom.playerLoader) dom.playerLoader.style.display = "flex";
+        try {
+            const res = await fetchWithTimeout(`/api/extract-ofutbol?id=${encodeURIComponent(link.url)}`, {}, 8000);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (data.ok && data.stream && data.stream.length > 0) {
+                // Formatear los streams de ofutbol para que coincidan con la estructura de links de wc.json
+                const formattedLinks = data.stream.map((st, idx) => ({
+                    url: st.url,
+                    server: st.server || `Señal ${idx + 1}`,
+                    quality: st.quality || { label: "HD", type: "hd" },
+                    lang: st.lang || { code: "es" },
+                    referer: st.referer || ""
+                }));
+
+                // Reemplazar la lista de links en el array por referencia
+                links.splice(0, links.length, ...formattedLinks);
+                
+                // Actualizar links en appState.slotsData si ya existe
+                if (appState.slotsData && appState.slotsData[slotId]) {
+                    appState.slotsData[slotId].links = formattedLinks;
+                }
+
+                // Continuar la reproducción recursivamente con la primera señal descifrada
+                playStreamInSlot(slotId, formattedLinks, 0, title, group, isMuted);
+                return;
+            } else {
+                throw new Error("La API no retornó streams válidos.");
+            }
+        } catch (err) {
+            console.error(`[Slot ${slotId}] Error al descifrar canal de ofutbol:`, err);
+            if (dom.playingGroup) {
+                dom.playingGroup.textContent = "Error al conectar con la señal del canal.";
+                dom.playingGroup.style.color = "#ff4d4d";
+            }
+            return;
+        } finally {
+            if (dom.playerLoader) dom.playerLoader.style.display = "none";
+        }
+    }
+
     const url = link.url;
     const isM3u8 = url.includes(".m3u8") || url.includes("playlist");
     const forceIframe = !isM3u8;
@@ -1203,12 +1301,14 @@ async function playStreamInSlot(slotId, links, activeIndex, title, group, isMute
         const isHls = targetUrl.includes(".m3u8") || targetUrl.includes("playlist");
 
         if (isHls && Hls.isSupported()) {
+            const referer = link.referer || "";
             appState[hlsKey] = new Hls({
                 maxBufferSize: 10 * 1024 * 1024,
                 maxBufferLength: 10,
                 liveSyncDurationCount: 3,
                 pLoader: ProxyLoader,
-                fLoader: ProxyLoader
+                fLoader: ProxyLoader,
+                customReferer: referer
             });
 
             appState[hlsKey].loadSource(targetUrl);
