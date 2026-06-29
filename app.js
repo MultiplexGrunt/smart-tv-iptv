@@ -334,35 +334,47 @@ function fetchWithTimeout(resource, options = {}, timeout = 8000) {
 /**
  * Extrae partidos y streams del payload RSC de Next.js de La Cancha.
  */
+/**
+ * Extrae partidos y streams del payload RSC de Next.js de La Cancha, unificando los pushes si es HTML.
+ */
 function extractMatchesAndStreamsFromRsc(rscText) {
     let matches = [];
     let activeStreams = [];
+    
+    // Si viene como HTML, reconstruir el payload unificando las llamadas self.__next_f.push
+    let rawPayload = rscText;
+    if (rscText.includes('self.__next_f.push')) {
+        let concatenated = "";
+        const pushRegex = /self\.__next_f\.push\(\[\d+,\s*"([\s\S]*?)"\]\)/g;
+        let match;
+        while ((match = pushRegex.exec(rscText)) !== null) {
+            concatenated += match[1];
+        }
+        if (concatenated) {
+            rawPayload = concatenated;
+        }
+    }
 
-    // Buscar "matches" en el texto RSC
-    const matchesRegex = /"matches"\s*:\s*(\[[\s\S]*?\])(?=\s*,\s*"streams"|\s*,\s*"featuredMatch"|\s*,\s*"activeMatch"|\s*\})/i;
-    const matchesMatch = rscText.match(matchesRegex);
+    // Desescapar comillas y barras
+    const cleaned = rawPayload.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+
+    // Buscar "matches" en el texto unificado
+    const matchesRegex = /"matches"\s*:\s*(\[[\s\S]*?\])(?=\s*,\s*"streams"|\s*,\s*"featuredMatch"|\s*,\s*"activeMatch"|\s*,\s*"chat"|\s*\})/i;
+    const matchesMatch = cleaned.match(matchesRegex);
     if (matchesMatch) {
         try {
-            let jsonStr = matchesMatch[1];
-            if (jsonStr.includes('\\"')) {
-                jsonStr = jsonStr.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-            }
-            matches = JSON.parse(jsonStr);
+            matches = JSON.parse(matchesMatch[1]);
         } catch (e) {
             console.warn("[RSC Parser] Error parseando matches:", e);
         }
     }
 
-    // Buscar "streams" en el texto RSC
-    const streamsRegex = /"streams"\s*:\s*(\[[\s\S]*?\])(?=\s*,\s*"[^"]*"\s*:|\s*\})/i;
-    const streamsMatch = rscText.match(streamsRegex);
+    // Buscar "streams" en el texto unificado
+    const streamsRegex = /"streams"\s*:\s*(\[[\s\S]*?\])/i;
+    const streamsMatch = cleaned.match(streamsRegex);
     if (streamsMatch) {
         try {
-            let jsonStr = streamsMatch[1];
-            if (jsonStr.includes('\\"')) {
-                jsonStr = jsonStr.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-            }
-            activeStreams = JSON.parse(jsonStr);
+            activeStreams = JSON.parse(streamsMatch[1]);
         } catch (e) {
             console.warn("[RSC Parser] Error parseando streams:", e);
         }
@@ -383,15 +395,26 @@ async function extractStreamsFromMatchPage(matchId) {
         
         const rscText = await res.text();
         
-        // Buscar streams en el RSC payload
-        const streamsRegex = /"streams"\s*:\s*(\[[\s\S]*?\])(?=\s*,\s*"[^"]*"\s*:|\s*\})/i;
-        const streamsMatch = rscText.match(streamsRegex);
-        if (streamsMatch) {
-            let jsonStr = streamsMatch[1];
-            if (jsonStr.includes('\\"')) {
-                jsonStr = jsonStr.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        let rawPayload = rscText;
+        if (rscText.includes('self.__next_f.push')) {
+            let concatenated = "";
+            const pushRegex = /self\.__next_f\.push\(\[\d+,\s*"([\s\S]*?)"\]\)/g;
+            let match;
+            while ((match = pushRegex.exec(rscText)) !== null) {
+                concatenated += match[1];
             }
-            const parsedStreams = JSON.parse(jsonStr);
+            if (concatenated) {
+                rawPayload = concatenated;
+            }
+        }
+        
+        const cleaned = rawPayload.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        
+        // Buscar streams en el RSC payload
+        const streamsRegex = /"streams"\s*:\s*(\[[\s\S]*?\])/i;
+        const streamsMatch = cleaned.match(streamsRegex);
+        if (streamsMatch) {
+            const parsedStreams = JSON.parse(streamsMatch[1]);
             if (parsedStreams.length > 0) {
                 return parsedStreams.map(st => ({
                     url: st.embed_url,
