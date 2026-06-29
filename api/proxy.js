@@ -1,12 +1,12 @@
 export default async function handler(req, res) {
-    const { url, referer } = req.query;
+    const { url, referer, rsc } = req.query;
     
     if (!url) {
         return res.status(400).json({ error: 'El parámetro "url" es requerido.' });
     }
 
     try {
-        console.log(`Bypassing CORS para: ${url} (Referer: ${referer || 'ninguno'})`);
+        console.log(`Bypassing CORS para: ${url} (Referer: ${referer || 'ninguno'}, RSC: ${rsc || 'no'})`);
         
         let origin = '';
         if (referer) {
@@ -18,16 +18,23 @@ export default async function handler(req, res) {
             }
         }
         
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': referer || 'https://spinoff.link/',
+            'Origin': origin || 'https://spinoff.link',
+            'Accept': '*/*',
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+        };
+
+        // Inyectar header RSC si lo pide el cliente para obtener payloads RSC de Next.js
+        if (rsc === '1' || req.headers['rsc'] === '1') {
+            headers['RSC'] = '1';
+        }
+
         // Configurar cabeceras simulando un navegador Chrome legítimo
         const fetchOptions = {
             method: 'GET',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': referer || 'https://spinoff.link/',
-                'Origin': origin || 'https://spinoff.link',
-                'Accept': '*/*',
-                'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
-            }
+            headers: headers
         };
 
         const response = await fetch(url, fetchOptions);

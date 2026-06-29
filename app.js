@@ -4,7 +4,7 @@
 
 // ── CONFIGURACIÓN Y ESTADO GLOBAL ──
 const CONFIG = {
-    EVENTS_JSON_URL: "https://streamtpday1.xyz/wc.json",
+    EVENTS_JSON_URL: "https://lacancha.tv/es/en-vivo",
     LACANCHA_CALENDARIO_URL: "https://lacancha.tv/es/calendario",
     EVENTS_REFRESH_MS: 30 * 1000,        // Actualizar lista de eventos cada 30s
     CORS_PROXY: "https://api.allorigins.win/raw?url="
@@ -331,42 +331,159 @@ function fetchWithTimeout(resource, options = {}, timeout = 8000) {
 /**
  * Carga el JSON de eventos.
  */
+/**
+ * Extrae partidos y streams del payload RSC de Next.js de La Cancha.
+ */
+function extractMatchesAndStreamsFromRsc(rscText) {
+    let matches = [];
+    let activeStreams = [];
+
+    // Buscar "matches" en el texto RSC
+    const matchesRegex = /"matches"\s*:\s*(\[[\s\S]*?\])(?=\s*,\s*"streams"|\s*,\s*"featuredMatch"|\s*,\s*"activeMatch"|\s*\})/i;
+    const matchesMatch = rscText.match(matchesRegex);
+    if (matchesMatch) {
+        try {
+            let jsonStr = matchesMatch[1];
+            if (jsonStr.includes('\\"')) {
+                jsonStr = jsonStr.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            }
+            matches = JSON.parse(jsonStr);
+        } catch (e) {
+            console.warn("[RSC Parser] Error parseando matches:", e);
+        }
+    }
+
+    // Buscar "streams" en el texto RSC
+    const streamsRegex = /"streams"\s*:\s*(\[[\s\S]*?\])(?=\s*,\s*"[^"]*"\s*:|\s*\})/i;
+    const streamsMatch = rscText.match(streamsRegex);
+    if (streamsMatch) {
+        try {
+            let jsonStr = streamsMatch[1];
+            if (jsonStr.includes('\\"')) {
+                jsonStr = jsonStr.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            }
+            activeStreams = JSON.parse(jsonStr);
+        } catch (e) {
+            console.warn("[RSC Parser] Error parseando streams:", e);
+        }
+    }
+
+    return { matches, activeStreams };
+}
+
+/**
+ * Extrae concurrentemente los canales de transmisión de un partido en La Cancha haciendo fetch a su página de detalle con ?rsc=1.
+ */
+async function extractStreamsFromMatchPage(matchId) {
+    try {
+        const url = `https://lacancha.tv/es/partido/${matchId}`;
+        const proxyUrl = buildProxyUrl(url) + "&rsc=1";
+        const res = await fetchWithTimeout(proxyUrl, {}, 8000);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const rscText = await res.text();
+        
+        // Buscar streams en el RSC payload
+        const streamsRegex = /"streams"\s*:\s*(\[[\s\S]*?\])(?=\s*,\s*"[^"]*"\s*:|\s*\})/i;
+        const streamsMatch = rscText.match(streamsRegex);
+        if (streamsMatch) {
+            let jsonStr = streamsMatch[1];
+            if (jsonStr.includes('\\"')) {
+                jsonStr = jsonStr.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            }
+            const parsedStreams = JSON.parse(jsonStr);
+            if (parsedStreams.length > 0) {
+                return parsedStreams.map(st => ({
+                    url: st.embed_url,
+                    server: st.embed_name || st.channel?.name || "Señal",
+                    quality: { label: "HD", type: "hd" },
+                    lang: { code: "es" }
+                }));
+            }
+        }
+    } catch (e) {
+        console.error("Error extrayendo streams de partido de La Cancha:", e);
+    }
+    return null;
+}
+
 async function loadLiveEvents() {
     const listEl = dom.eventsList;
     if (!listEl) return;
 
-    // 1. Cargar marcadores de La Cancha de forma asíncrona (no bloqueante)
-    loadLaCanchaScores().then(() => {
-        console.log("Marcadores deportivos de La Cancha actualizados asíncronamente.");
-        // Si ya tenemos eventos cargados en memoria, re-renderizar para pintar los nuevos marcadores
-        if (appState.lastEvents && appState.lastEvents.length > 0) {
-            renderLiveEvents(appState.lastEvents, listEl);
-        }
-    }).catch(scoreErr => {
-        console.warn("No se pudieron actualizar los marcadores deportivos:", scoreErr);
-    });
-
-    // 2. Cargar eventos en vivo principales
+    // 1. Intentar cargar eventos de La Cancha en tiempo real
     try {
-        const proxyUrl = buildProxyUrl(CONFIG.EVENTS_JSON_URL);
+        console.log("Cargando eventos deportivos en vivo desde La Cancha...");
+        const proxyUrl = buildProxyUrl(CONFIG.EVENTS_JSON_URL) + (CONFIG.EVENTS_JSON_URL.includes("?") ? "&" : "?") + "rsc=1";
         const res = await fetchWithTimeout(proxyUrl, {}, 8000);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        const data = await res.json();
-        const events = data.events || [];
+        const rscText = await res.text();
+        const { matches, activeStreams } = extractMatchesAndStreamsFromRsc(rscText);
 
-        if (events.length === 0) {
+        if (matches.length === 0) {
             listEl.innerHTML = `<p style="font-size:12px;color:var(--text-dimmed);text-align:center;padding:25px;width:100%">Sin eventos disponibles en este momento</p>`;
             return;
         }
 
-        // Guardar eventos en estado global para re-renderizados
-        appState.lastEvents = events;
+        // Extraer el matchId al que corresponden los streams activos por defecto
+        const featuredMatchRegex = /"(?:featuredMatch|match)"\s*:\s*\{\s*"id"\s*:\s*"([^"]+)"/i;
+        const featuredMatchMatch = rscText.match(featuredMatchRegex);
+        const activeMatchId = featuredMatchMatch ? featuredMatchMatch[1] : (matches[0] ? matches[0].id : null);
 
-        renderLiveEvents(events, listEl);
+        // Mapear los partidos al formato esperado por renderLiveEvents
+        const mappedEvents = matches.map(match => {
+            const isFeatured = match.id === activeMatchId;
+            let links = [];
+
+            if (isFeatured && activeStreams && activeStreams.length > 0) {
+                links = activeStreams.map(st => ({
+                    url: st.embed_url,
+                    server: st.embed_name || st.channel?.name || "Señal",
+                    quality: { label: "HD", type: "hd" },
+                    lang: { code: "es" }
+                }));
+            } else {
+                // Inyectar enlace de carga diferida
+                links = [{
+                    url: match.id,
+                    server: "Cargar transmisiones...",
+                    quality: { label: "HD", type: "hd" },
+                    lang: { code: "es" },
+                    isLaCanchaMatch: true
+                }];
+            }
+
+            // Formatear hora de inicio adaptada a la hora local
+            let displayTime = "--:--";
+            if (match.kickoff_at) {
+                try {
+                    const localDate = new Date(match.kickoff_at);
+                    const hrs = localDate.getHours().toString().padStart(2, '0');
+                    const mins = localDate.getMinutes().toString().padStart(2, '0');
+                    displayTime = `${hrs}:${mins}`;
+                } catch (err) {
+                    console.warn("Error convirtiendo kickoff_at a hora local:", err);
+                }
+            }
+
+            return {
+                title: `${match.home_team} vs ${match.away_team}`,
+                time: displayTime,
+                category: "Deportes",
+                links: links,
+                id: match.id
+            };
+        });
+
+        // Actualizar marcadores en el estado global para pintarlos en las tarjetas de eventos
+        appState.scores = matches;
+        appState.lastEvents = mappedEvents;
+
+        renderLiveEvents(mappedEvents, listEl);
 
     } catch (err) {
-        console.warn("Error cargando eventos en vivo, intentando fallback de canales:", err);
+        console.warn("Error cargando eventos en vivo principales de La Cancha, intentando fallback de canales:", err);
 
         // Fallback: Cargar los canales deportivos dinámicos de ofutbol
         try {
@@ -1051,6 +1168,39 @@ class ProxyLoader extends Hls.DefaultConfig.loader {
 async function playStreamInSlot(slotId, links, activeIndex, title, group, isMuted = false) {
     let link = links[activeIndex];
     if (!link) return;
+
+    // Interceptar si es un partido de La Cancha con carga diferida
+    if (link.isLaCanchaMatch) {
+        console.log(`[Slot ${slotId}] Carga diferida de streams de La Cancha para: ${title}. Descargando señales...`);
+        if (dom.playerLoader) dom.playerLoader.style.display = "flex";
+        try {
+            const extractedLinks = await extractStreamsFromMatchPage(link.url);
+            if (extractedLinks && extractedLinks.length > 0) {
+                // Reemplazar la lista de links en el array por referencia
+                links.splice(0, links.length, ...extractedLinks);
+                
+                // Actualizar en el estado de slots
+                if (appState.slotsData && appState.slotsData[slotId]) {
+                    appState.slotsData[slotId].links = extractedLinks;
+                }
+                
+                // Continuar reproducción recursivamente con la primera señal
+                playStreamInSlot(slotId, extractedLinks, 0, title, group, isMuted);
+                return;
+            } else {
+                throw new Error("Sin transmisiones disponibles en este momento para este partido.");
+            }
+        } catch (err) {
+            console.error(`[Slot ${slotId}] Error al cargar partido de La Cancha:`, err);
+            if (dom.playingGroup) {
+                dom.playingGroup.textContent = "Sin señales activas para este partido en este momento.";
+                dom.playingGroup.style.color = "#ff4d4d";
+            }
+            return;
+        } finally {
+            if (dom.playerLoader) dom.playerLoader.style.display = "none";
+        }
+    }
 
     // Interceptar si es un canal de ofutbol (fallback) que requiere descifrado
     if (link.isOfutbol) {
