@@ -6,6 +6,8 @@
 const CONFIG = {
     CORS_PROXY: "https://api.allorigins.win/raw?url=",
     CATEGORIES: [
+        { id: "gist_1", name: "Deportes VIP 1" },
+        { id: "gist_2", name: "Deportes VIP 2" },
         { id: "5yGwkvtV9Q", name: "Deportes" },
         { id: "upzXNF741n", name: "Canales 24/7" },
         { id: "3Yk0XPaR23", name: "HBO Canales" },
@@ -131,6 +133,11 @@ async function loadChannelsForSelectedCategory(autoPlayFirst = false) {
             <div class="spinner"></div>
             <p style="font-size:11px;margin-top:5px">Cargando canales de ${catName}...</p>
         </div>`;
+
+    if (catId === "gist_1" || catId === "gist_2") {
+        await loadAndDecryptGistChannels(catId, catName, autoPlayFirst);
+        return;
+    }
         
     try {
         const res = await fetch(`/api/get-channels?category=${catId}`);
@@ -202,8 +209,26 @@ async function selectChannel(channelRowEl) {
     dom.signalsPanel.classList.add("hidden");
     dom.signalsList.innerHTML = "";
 
-    // Obtener las múltiples transmisiones descifradas desde el backend
-    const streams = await fetchDecryptedStreams(channelId);
+    // Obtener las múltiples transmisiones descifradas
+    let streams = null;
+    if (channelId.startsWith("custom_")) {
+        const parts = channelId.split("_");
+        const catIdCache = parts[1] + "_" + parts[2]; // gist_1 o gist_2
+        const idx = parseInt(parts[3], 10);
+        const ch = customChannelsCache[catIdCache] ? customChannelsCache[catIdCache][idx] : null;
+        if (ch && ch.url) {
+            const isIframe = ch.url.includes(".php") || ch.type === "iframeProxy";
+            streams = [{
+                tipo: isIframe ? 1 : 3,
+                url: ch.url,
+                referer: ch.referer,
+                origin: ch.origin,
+                server: ch.server || "Servidor VIP"
+            }];
+        }
+    } else {
+        streams = await fetchDecryptedStreams(channelId);
+    }
     dom.playerLoader.style.display = "none";
 
     if (streams && streams.length > 0) {
@@ -466,6 +491,187 @@ async function fetchDecryptedStreams(channelId) {
     }
 }
 
+// ── SISTEMA DE CANALES CUSTOM VIP (GISTS DESCIFRADOS) ──
+let customChannelsCache = {};
+
+const GIST_URLS = {
+    "gist_1": "https://gist.githubusercontent.com/vitalspace/819221ea13d3de546eef137f8983992d/raw",
+    "gist_2": "https://gist.githubusercontent.com/vitalspace/06faedd8519eeeb3f5aee516bbe17182/raw"
+};
+
+async function decryptAESGCM(encryptedString, password = "myrandomclave") {
+    if (!encryptedString) return '';
+    if (typeof encryptedString !== 'string' || !encryptedString.startsWith('AES:')) return encryptedString;
+    
+    const parts = encryptedString.split(':');
+    if (parts.length < 5) return '';
+    
+    const saltHex = parts[1];
+    const ivHex = parts[2];
+    const ciphertextHex = parts[3];
+    const tagHex = parts[4];
+    
+    if (!ciphertextHex) return '';
+    
+    const hexToBytes = hex => {
+        const bytes = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < bytes.length; i++) {
+            bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+        }
+        return bytes;
+    };
+    
+    try {
+        const saltBin = hexToBytes(saltHex);
+        const iv = hexToBytes(ivHex);
+        const ciphertext = hexToBytes(ciphertextHex);
+        const tag = hexToBytes(tagHex);
+        
+        const passwordBytes = new TextEncoder().encode(password);
+        const keySource = new Uint8Array(saltBin.length + passwordBytes.length);
+        keySource.set(saltBin);
+        keySource.set(passwordBytes, saltBin.length);
+        
+        const keyHash = await crypto.subtle.digest("SHA-256", keySource);
+        
+        const key = await crypto.subtle.importKey(
+            "raw",
+            keyHash,
+            { name: "AES-GCM" },
+            false,
+            ["decrypt"]
+        );
+        
+        const cipherAndTag = new Uint8Array(ciphertext.length + tag.length);
+        cipherAndTag.set(ciphertext);
+        cipherAndTag.set(tag, ciphertext.length);
+        
+        const decryptedBytes = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: iv },
+            key,
+            cipherAndTag
+        );
+        
+        let decrypted = new TextDecoder().decode(decryptedBytes);
+        if (decrypted.startsWith('"') && decrypted.endsWith('"')) {
+            decrypted = decrypted.substring(1, decrypted.length - 1);
+        }
+        return decrypted;
+    } catch (e) {
+        console.error("Error al descifrar campo:", e);
+        return "";
+    }
+}
+
+async function loadAndDecryptGistChannels(catId, catName, autoPlayFirst = false) {
+    try {
+        if (customChannelsCache[catId]) {
+            renderCustomChannels(catId, customChannelsCache[catId], catName, autoPlayFirst);
+            return;
+        }
+        
+        const gistUrl = GIST_URLS[catId];
+        if (!gistUrl) throw new Error("URL de Gist no configurada");
+        
+        const res = await fetch(gistUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status} al descargar Gist`);
+        
+        const text = await res.text();
+        const lines = text.split('\n');
+        const encryptedChannels = [];
+        
+        for (let line of lines) {
+            line = line.trim();
+            if (!line.startsWith('- {')) continue;
+            
+            const nameMatch = line.match(/name:\s*(AES:[^,\s}]+)/);
+            const typeMatch = line.match(/type:\s*(AES:[^,\s}]+)/);
+            const serverMatch = line.match(/server:\s*(AES:[^,\s}]+)/);
+            const urlMatch = line.match(/url:\s*(AES:[^,\s}]+)/);
+            const imageMatch = line.match(/image:\s*(AES:[^,\s}]+)/);
+            const refererMatch = line.match(/"Referer":\s*(AES:[^,\s}]+)/);
+            const originMatch = line.match(/"Origin":\s*(AES:[^,\s}]+)/);
+            
+            if (urlMatch) {
+                encryptedChannels.push({
+                    nameEnc: nameMatch ? nameMatch[1] : '',
+                    typeEnc: typeMatch ? typeMatch[1] : '',
+                    serverEnc: serverMatch ? serverMatch[1] : '',
+                    urlEnc: urlMatch ? urlMatch[1] : '',
+                    imageEnc: imageMatch ? imageMatch[1] : '',
+                    refererEnc: refererMatch ? refererMatch[1] : '',
+                    originEnc: originMatch ? originMatch[1] : ''
+                });
+            }
+        }
+        
+        const decryptedList = await Promise.all(encryptedChannels.map(async (ch, idx) => {
+            const name = await decryptAESGCM(ch.nameEnc);
+            const type = await decryptAESGCM(ch.typeEnc);
+            const server = await decryptAESGCM(ch.serverEnc);
+            const url = await decryptAESGCM(ch.urlEnc);
+            const image = await decryptAESGCM(ch.imageEnc);
+            const referer = await decryptAESGCM(ch.refererEnc);
+            const origin = await decryptAESGCM(ch.originEnc);
+            
+            return {
+                id: `custom_${catId}_${idx}`,
+                name: name || `Canal ${idx + 1}`,
+                type: type || 'm3u8Proxy',
+                server: server || 'none',
+                url: url,
+                logo: image || 'https://ofutbol.jdoxx.com/assets/img/img-utilidad/default.png',
+                referer: referer,
+                origin: origin
+            };
+        }));
+        
+        customChannelsCache[catId] = decryptedList;
+        renderCustomChannels(catId, decryptedList, catName, autoPlayFirst);
+        
+    } catch (err) {
+        console.error("[Cargar Gist VIP Error]:", err);
+        dom.canalesList.innerHTML = `
+            <div class="error-state">
+                <p>Error al descargar o descifrar la lista VIP.</p>
+                <p style="font-size: 10px; color: var(--text-muted)">${err.message}</p>
+            </div>`;
+    }
+}
+
+function renderCustomChannels(catId, channels, catName, autoPlayFirst) {
+    if (channels.length === 0) {
+        dom.canalesList.innerHTML = `
+            <div class="error-state">
+                <p>No se pudieron descifrar canales válidos.</p>
+            </div>`;
+        return;
+    }
+    
+    dom.canalesList.innerHTML = channels.map(ch => {
+        return `
+            <button class="tv-channel-item-row focusable"
+                data-channel-id="${ch.id}"
+                data-channel-name="${ch.name}"
+                data-channel-group="${catName}">
+                <img src="${ch.logo}" alt="${ch.name}" onerror="this.style.display='none'">
+                <span class="channel-name-txt">${ch.name}</span>
+            </button>`;
+    }).join("");
+    
+    rebuildSpatialIndexes();
+    
+    if (autoPlayFirst) {
+        setTimeout(() => {
+            const firstRow = dom.canalesList.querySelector(".tv-channel-item-row");
+            if (firstRow) {
+                setFocus(firstRow);
+                selectChannel(firstRow);
+            }
+        }, 200);
+    }
+}
+
 // Clase cargadora de HLS que redirecciona a través del proxy CORS
 class ProxyLoader extends Hls.DefaultConfig.loader {
     constructor(config) { 
@@ -541,10 +747,11 @@ async function playStreamInSlot(slotId, url, title, group, forceIframe, isMuted 
         videoEl.style.display = "none";
         iframeEl.style.display = "block";
         
-        // Cargar el iframe a través del proxy con el referer de ofutbol
+        // Cargar el iframe a través del proxy con el referer suministrado o por defecto
         let proxyIframeUrl = url;
         if (url.startsWith('http')) {
-            proxyIframeUrl = `/api/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent('https://ofutbol.jdoxx.com/')}`;
+            const refToUse = referer || 'https://ofutbol.jdoxx.com/';
+            proxyIframeUrl = `/api/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(refToUse)}`;
         }
         iframeEl.src = proxyIframeUrl;
     } else {
