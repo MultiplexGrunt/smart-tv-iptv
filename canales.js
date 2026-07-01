@@ -217,14 +217,8 @@ async function selectChannel(channelRowEl) {
         const idx = parseInt(parts[3], 10);
         const ch = customChannelsCache[catIdCache] ? customChannelsCache[catIdCache][idx] : null;
         if (ch && ch.url) {
-            const isIframe = ch.url.includes(".php") || ch.type === "iframeProxy";
-            streams = [{
-                tipo: isIframe ? 1 : 3,
-                url: ch.url,
-                referer: ch.referer,
-                origin: ch.origin,
-                server: ch.server || "Servidor VIP"
-            }];
+            // Consultamos al extractor del backend en caliente para obtener la señal HLS directa (.m3u8)
+            streams = await fetchDecryptedStreams(ch.url);
         }
     } else {
         streams = await fetchDecryptedStreams(channelId);

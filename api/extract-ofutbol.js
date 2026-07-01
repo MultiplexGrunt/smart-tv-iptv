@@ -90,6 +90,75 @@ export default async function handler(req, res) {
     }
 
     try {
+        if (id.startsWith('http://') || id.startsWith('https://')) {
+            const lowerUrl = id.toLowerCase();
+            if (lowerUrl.includes('tvhd2.com') || lowerUrl.includes('stream-xhd.com')) {
+                let refererHost = "";
+                if (lowerUrl.includes("tvhd2.com")) {
+                    refererHost = "https://tvhd2.com/";
+                } else if (lowerUrl.includes("stream-xhd.com")) {
+                    refererHost = "https://stream-xhd.com/";
+                }
+
+                const pageRes = await fetch(id, {
+                    headers: {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Referer": refererHost
+                    }
+                });
+                
+                if (!pageRes.ok) {
+                    return res.status(502).json({
+                        ok: false,
+                        error: `Error HTTP ${pageRes.status} al acceder al canal VIP.`
+                    });
+                }
+                
+                const pageHtml = await pageRes.text();
+                let m3u8Url = null;
+                
+                if (lowerUrl.includes("tvhd2.com")) {
+                    const iframeMatch = pageHtml.match(/src="([^"]*\/tv\/canales\.php[^"]+)"/) || pageHtml.match(/<iframe[^>]*src="([^"]+)"/);
+                    if (iframeMatch) {
+                        let iframeUrl = iframeMatch[1];
+                        if (iframeUrl.startsWith('/')) {
+                            iframeUrl = "https://tvhd2.com" + iframeUrl;
+                        }
+                        const subRes = await fetch(iframeUrl, {
+                            headers: {
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                                "Referer": id
+                            }
+                        });
+                        if (subRes.ok) {
+                            const subHtml = await subRes.text();
+                            m3u8Url = decryptPlaybackURL(subHtml);
+                        }
+                    }
+                } else {
+                    m3u8Url = decryptPlaybackURL(pageHtml);
+                }
+                
+                if (m3u8Url) {
+                    return res.status(200).json({
+                        ok: true,
+                        name: "Canal VIP",
+                        stream: [{
+                            tipo: 3, // HLS directo
+                            url: m3u8Url,
+                            note: "Señal Directa Descifrada",
+                            referer: refererHost
+                        }]
+                    });
+                } else {
+                    return res.status(404).json({
+                        ok: false,
+                        error: "No se pudo extraer la señal HLS del canal VIP."
+                    });
+                }
+            }
+        }
+
         let realId = id;
 
         // Si el id parece ser un slug (ej: colombia/win-sport-) o una url completa
