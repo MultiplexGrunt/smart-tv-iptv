@@ -73,7 +73,7 @@
                 <div class="player-slot active-slot" id="player-slot-1">
                     <video id="tv-video-player-1" autoplay crossorigin="anonymous"></video>
                     <iframe id="tv-iframe-player-1" allow="autoplay; encrypted-media; picture-in-picture"
-                        allowfullscreen></iframe>
+                        sandbox="allow-scripts allow-same-origin allow-presentation allow-downloads" allowfullscreen></iframe>
                 </div>
 
                 <!-- DIVISOR ARRASTRABLE PARA PANTALLA PARTIDA -->
@@ -85,7 +85,7 @@
                 <div class="player-slot" id="player-slot-2" style="display: none;">
                     <video id="tv-video-player-2" autoplay crossorigin="anonymous"></video>
                     <iframe id="tv-iframe-player-2" allow="autoplay; encrypted-media; picture-in-picture"
-                        allowfullscreen></iframe>
+                        sandbox="allow-scripts allow-same-origin allow-presentation allow-downloads" allowfullscreen></iframe>
                 </div>
 
                 <!-- RANURA PiP: Flotante (Esquinas) -->
@@ -93,7 +93,7 @@
                     style="display: none;">
                     <video id="tv-video-player-pip" autoplay></video>
                     <iframe id="tv-iframe-player-pip" allow="autoplay; encrypted-media; picture-in-picture"
-                        allowfullscreen></iframe>
+                        sandbox="allow-scripts allow-same-origin allow-presentation allow-downloads" allowfullscreen></iframe>
                     <!-- Barra superior de control y arrastre -->
                     <div class="pip-control-header" id="pip-control-header">
                         <button class="slot-resize-btn focusable" id="btn-resize-slot-pip" tabindex="0"
